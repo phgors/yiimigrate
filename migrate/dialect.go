@@ -9,6 +9,8 @@ type Dialect interface {
 	QuoteTable(name string) string
 	// QuoteColumn quotes a column identifier.
 	QuoteColumn(name string) string
+	// QuoteIndexColumn quotes an index column unless it is an expression.
+	QuoteIndexColumn(name string) string
 	// Placeholder returns the parameter placeholder for a one-based argument index.
 	Placeholder(index int) string
 
@@ -20,4 +22,46 @@ type Dialect interface {
 	InsertMigrationSQL(table string) string
 	// DeleteMigrationSQL returns SQL that removes an applied migration record.
 	DeleteMigrationSQL(table string) string
+
+	// CreateTable returns SQL that creates a table.
+	CreateTable(table string, columns *ColumnList, options string) string
+	// DropTable returns SQL that drops a table.
+	DropTable(table string) string
+	// RenameTable returns SQL that renames a table.
+	RenameTable(oldName, newName string) string
+	// TruncateTable returns SQL that truncates a table.
+	TruncateTable(table string) string
+
+	// AddColumn returns SQL that adds a column.
+	AddColumn(table, column string, builder *ColumnBuilder) string
+	// AlterColumn returns SQL that alters a column.
+	AlterColumn(table, column string, builder *ColumnBuilder) string
+	// DropColumn returns SQL that drops a column.
+	DropColumn(table, column string) string
+	// RenameColumn returns SQL that renames a column.
+	RenameColumn(table, oldName, newName string) string
+
+	// CreateIndex returns SQL that creates an index.
+	CreateIndex(name, table string, columns []string, unique bool) string
+	// DropIndex returns SQL that drops an index.
+	DropIndex(name, table string) string
+
+	// AddPrimaryKey returns SQL that adds a primary key constraint.
+	AddPrimaryKey(name, table string, columns []string) string
+	// DropPrimaryKey returns SQL that drops the primary key constraint.
+	DropPrimaryKey(name, table string) string
+
+	// AddForeignKey returns SQL that adds a foreign key constraint.
+	AddForeignKey(name string, table string, columns []string, refTable string, refColumns []string, onDelete ForeignKeyAction, onUpdate ForeignKeyAction) string
+	// DropForeignKey returns SQL that drops a foreign key constraint.
+	DropForeignKey(name, table string) string
+
+	// AddCommentOnColumn returns SQL that adds a column comment.
+	AddCommentOnColumn(table, column, comment string) string
+	// DropCommentFromColumn returns SQL that drops a column comment.
+	DropCommentFromColumn(table, column string) string
+	// AddCommentOnTable returns SQL that adds a table comment.
+	AddCommentOnTable(table, comment string) string
+	// DropCommentFromTable returns SQL that drops a table comment.
+	DropCommentFromTable(table string) string
 }
