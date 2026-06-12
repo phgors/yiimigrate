@@ -12,6 +12,9 @@ var ErrIrreversibleMigration = errors.New("irreversible migration")
 // ErrMigrationNotFound is returned when an applied migration has no registered implementation.
 var ErrMigrationNotFound = errors.New("migration not found")
 
+// ErrMigrationLockTimeout is returned when the migration lock cannot be acquired.
+var ErrMigrationLockTimeout = errors.New("migration lock timeout")
+
 // Migration is implemented by concrete database migrations.
 type Migration interface {
 	// Name returns the unique migration version name.

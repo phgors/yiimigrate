@@ -22,6 +22,20 @@ type Dialect interface {
 	InsertMigrationSQL(table string) string
 	// DeleteMigrationSQL returns SQL that removes an applied migration record.
 	DeleteMigrationSQL(table string) string
+	// TableExistsSQL returns SQL and args for checking table existence.
+	TableExistsSQL(table string) (string, []any)
+	// ColumnExistsSQL returns SQL and args for checking column existence.
+	ColumnExistsSQL(table, column string) (string, []any)
+	// IndexExistsSQL returns SQL and args for checking index existence.
+	IndexExistsSQL(table, index string) (string, []any)
+	// ForeignKeyExistsSQL returns SQL and args for checking foreign key existence.
+	ForeignKeyExistsSQL(table, name string) (string, []any)
+	// ConstraintExistsSQL returns SQL and args for checking constraint existence.
+	ConstraintExistsSQL(table, name string) (string, []any)
+	// BuildRowExistsSQL returns SQL for checking row existence.
+	BuildRowExistsSQL(table string, condition string) string
+	// BuildCountRowsSQL returns SQL for counting rows.
+	BuildCountRowsSQL(table string, condition string) string
 
 	// CreateTable returns SQL that creates a table.
 	CreateTable(table string, columns *ColumnList, options string) string
@@ -64,4 +78,17 @@ type Dialect interface {
 	AddCommentOnTable(table, comment string) string
 	// DropCommentFromTable returns SQL that drops a table comment.
 	DropCommentFromTable(table string) string
+
+	// Insert returns SQL and args for an INSERT statement.
+	Insert(table string, row Row) (string, []any)
+	// BatchInsert returns SQL and args for a multi-row INSERT statement.
+	BatchInsert(table string, columns []string, rows [][]any) (string, []any)
+	// Update returns SQL and args for an UPDATE statement.
+	Update(table string, row Row, condition string, args ...any) (string, []any)
+	// Delete returns SQL and args for a DELETE statement.
+	Delete(table string, condition string, args ...any) (string, []any)
+	// AcquireLockSQL returns SQL and args for acquiring a migration lock.
+	AcquireLockSQL(lockName string, timeoutSeconds int) (string, []any)
+	// ReleaseLockSQL returns SQL and args for releasing a migration lock.
+	ReleaseLockSQL(lockName string) (string, []any)
 }

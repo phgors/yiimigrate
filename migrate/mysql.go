@@ -2,6 +2,7 @@ package migrate
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -66,6 +67,49 @@ func (d MySQLDialect) InsertMigrationSQL(table string) string {
 func (d MySQLDialect) DeleteMigrationSQL(table string) string {
 	return "DELETE FROM " + d.QuoteTable(table) +
 		" WHERE " + d.QuoteColumn("version") + " = " + d.Placeholder(1)
+}
+
+// TableExistsSQL returns SQL and args for checking MySQL table existence.
+func (MySQLDialect) TableExistsSQL(table string) (string, []any) {
+	return "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?", []any{table}
+}
+
+// ColumnExistsSQL returns SQL and args for checking MySQL column existence.
+func (MySQLDialect) ColumnExistsSQL(table, column string) (string, []any) {
+	return "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?", []any{table, column}
+}
+
+// IndexExistsSQL returns SQL and args for checking MySQL index existence.
+func (MySQLDialect) IndexExistsSQL(table, index string) (string, []any) {
+	return "SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = ? AND index_name = ?", []any{table, index}
+}
+
+// ForeignKeyExistsSQL returns SQL and args for checking MySQL foreign key existence.
+func (MySQLDialect) ForeignKeyExistsSQL(table, name string) (string, []any) {
+	return "SELECT COUNT(*) FROM information_schema.table_constraints WHERE table_schema = DATABASE() AND table_name = ? AND constraint_name = ? AND constraint_type = 'FOREIGN KEY'", []any{table, name}
+}
+
+// ConstraintExistsSQL returns SQL and args for checking MySQL constraint existence.
+func (MySQLDialect) ConstraintExistsSQL(table, name string) (string, []any) {
+	return "SELECT COUNT(*) FROM information_schema.table_constraints WHERE table_schema = DATABASE() AND table_name = ? AND constraint_name = ?", []any{table, name}
+}
+
+// BuildRowExistsSQL returns SQL for checking row existence.
+func (d MySQLDialect) BuildRowExistsSQL(table string, condition string) string {
+	sql := "SELECT EXISTS(SELECT 1 FROM " + d.QuoteTable(table)
+	if condition != "" {
+		sql += " WHERE " + condition
+	}
+	return sql + ")"
+}
+
+// BuildCountRowsSQL returns SQL for counting rows.
+func (d MySQLDialect) BuildCountRowsSQL(table string, condition string) string {
+	sql := "SELECT COUNT(*) FROM " + d.QuoteTable(table)
+	if condition != "" {
+		sql += " WHERE " + condition
+	}
+	return sql
 }
 
 // CreateTable returns SQL that creates a MySQL table.
@@ -180,6 +224,73 @@ func (d MySQLDialect) DropCommentFromTable(table string) string {
 	return d.AddCommentOnTable(table, "")
 }
 
+// Insert returns SQL and args for a MySQL INSERT statement.
+func (d MySQLDialect) Insert(table string, row Row) (string, []any) {
+	columns := sortedRowColumns(row)
+	quotedColumns := make([]string, 0, len(columns))
+	values := make([]string, 0, len(columns))
+	args := make([]any, 0, len(columns))
+	for _, column := range columns {
+		quotedColumns = append(quotedColumns, d.QuoteColumn(column))
+		values = appendSQLValue(values, &args, row[column], len(args)+1, d)
+	}
+	return "INSERT INTO " + d.QuoteTable(table) + " (" + strings.Join(quotedColumns, ", ") + ") VALUES (" + strings.Join(values, ", ") + ")", args
+}
+
+// BatchInsert returns SQL and args for a MySQL multi-row INSERT statement.
+func (d MySQLDialect) BatchInsert(table string, columns []string, rows [][]any) (string, []any) {
+	quotedColumns := make([]string, 0, len(columns))
+	for _, column := range columns {
+		quotedColumns = append(quotedColumns, d.QuoteColumn(column))
+	}
+	args := make([]any, 0, len(columns)*len(rows))
+	valueGroups := make([]string, 0, len(rows))
+	for _, row := range rows {
+		values := make([]string, 0, len(row))
+		for _, value := range row {
+			values = appendSQLValue(values, &args, value, len(args)+1, d)
+		}
+		valueGroups = append(valueGroups, "("+strings.Join(values, ", ")+")")
+	}
+	return "INSERT INTO " + d.QuoteTable(table) + " (" + strings.Join(quotedColumns, ", ") + ") VALUES " + strings.Join(valueGroups, ", "), args
+}
+
+// Update returns SQL and args for a MySQL UPDATE statement.
+func (d MySQLDialect) Update(table string, row Row, condition string, conditionArgs ...any) (string, []any) {
+	columns := sortedRowColumns(row)
+	set := make([]string, 0, len(columns))
+	args := make([]any, 0, len(columns)+len(conditionArgs))
+	for _, column := range columns {
+		values := appendSQLValue(nil, &args, row[column], len(args)+1, d)
+		set = append(set, d.QuoteColumn(column)+" = "+values[0])
+	}
+	args = append(args, conditionArgs...)
+	sql := "UPDATE " + d.QuoteTable(table) + " SET " + strings.Join(set, ", ")
+	if condition != "" {
+		sql += " WHERE " + condition
+	}
+	return sql, args
+}
+
+// Delete returns SQL and args for a MySQL DELETE statement.
+func (d MySQLDialect) Delete(table string, condition string, args ...any) (string, []any) {
+	sql := "DELETE FROM " + d.QuoteTable(table)
+	if condition != "" {
+		sql += " WHERE " + condition
+	}
+	return sql, args
+}
+
+// AcquireLockSQL returns SQL and args for acquiring a MySQL advisory lock.
+func (MySQLDialect) AcquireLockSQL(lockName string, timeoutSeconds int) (string, []any) {
+	return "SELECT GET_LOCK(?, ?)", []any{lockName, timeoutSeconds}
+}
+
+// ReleaseLockSQL returns SQL and args for releasing a MySQL advisory lock.
+func (MySQLDialect) ReleaseLockSQL(lockName string) (string, []any) {
+	return "SELECT RELEASE_LOCK(?)", []any{lockName}
+}
+
 func (d MySQLDialect) columnSQL(builder *ColumnBuilder) string {
 	if builder == nil {
 		return ""
@@ -236,6 +347,24 @@ func (d MySQLDialect) columnSQL(builder *ColumnBuilder) string {
 		parts = append(parts, "AFTER "+d.QuoteColumn(builder.after))
 	}
 	return strings.Join(parts, " ")
+}
+
+func sortedRowColumns(row Row) []string {
+	columns := make([]string, 0, len(row))
+	for column := range row {
+		columns = append(columns, column)
+	}
+	sort.Strings(columns)
+	return columns
+}
+
+func appendSQLValue(values []string, args *[]any, value any, index int, dialect Dialect) []string {
+	if expr, ok := value.(Expression); ok {
+		return append(values, string(expr))
+	}
+	values = append(values, dialect.Placeholder(index))
+	*args = append(*args, value)
+	return values
 }
 
 func (d MySQLDialect) joinColumns(columns []string) string {
