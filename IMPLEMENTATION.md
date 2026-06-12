@@ -1,7 +1,7 @@
 # Go 复刻 Yii2 Migration 数据迁移库实施文档
 
 > 目标：使用 Go 实现一个接近 Yii2 Migration 使用体验的数据迁移库。
-> 当前阶段：只交付 MySQLDialect。SQLite、PostgreSQL、SQL Server 只预留接口，不实现、不暴露、不在 README 宣称支持。
+> 当前阶段：交付 MySQLDialect 和 SQLiteDialect。PostgreSQL、SQL Server 只预留接口，不实现、不暴露、不在 README 宣称支持。
 > 适用对象：准备使用 Codex 分阶段完成开发的 Go 项目。
 
 ---
@@ -58,7 +58,7 @@ m.QueryAll(ctx, "SELECT * FROM user WHERE status = ?", 10)
 m.QueryValue(ctx, "SELECT COUNT(*) FROM user")
 ```
 
-8. 当前阶段只实现 MySQL，其他数据库只做接口预留。
+8. 当前阶段实现 MySQL 和 SQLite，其他数据库只做接口预留。
 
 ---
 
@@ -69,6 +69,7 @@ m.QueryValue(ctx, "SELECT COUNT(*) FROM user")
 - Go module 项目结构
 - `database/sql`
 - MySQL 方言
+- SQLite 方言
 - 链式 `ColumnBuilder`
 - 链式 `SchemaPlan`
 - 迁移记录表
@@ -79,6 +80,7 @@ m.QueryValue(ctx, "SELECT COUNT(*) FROM user")
 - 查询型 DML helper
 - 单元测试
 - MySQL 集成测试，允许通过环境变量启用
+- SQLite SQL 生成单元测试，不要求 SQLite 驱动
 
 ### 2.2 首期不强制支持
 
@@ -87,7 +89,7 @@ m.QueryValue(ctx, "SELECT COUNT(*) FROM user")
 - 复杂 schema diff
 - 多租户连接管理
 - GUI
-- 非 MySQL 方言的完整实现
+- PostgreSQL、SQL Server 等其他方言的完整实现
 
 ---
 
@@ -366,16 +368,16 @@ migrate.Columns().
 
 ### 8.1 当前数据库支持范围
 
-当前版本仅交付：
+当前版本交付：
 
 ```go
 type MySQLDialect struct{}
+type SQLiteDialect struct{}
 ```
 
 不允许在当前阶段提供未完成的：
 
 ```go
-type SQLiteDialect struct{}
 type PostgresDialect struct{}
 type SQLServerDialect struct{}
 ```
@@ -385,7 +387,7 @@ type SQLServerDialect struct{}
 1. 容易让使用者误以为已经支持。
 2. 不同数据库的 DDL 差异很大。
 3. 半成品方言会导致迁移失败或数据损坏。
-4. 当前目标是先把 MySQL 做完整、稳定、可测试。
+4. 当前目标是把 MySQL 和 SQLite 做完整、稳定、可测试。
 
 ### 8.2 Dialect 接口
 
@@ -834,8 +836,8 @@ func (d MySQLDialect) Placeholder(index int) string {
 
 注意：
 
-- 当前项目只实现 `MySQLDialect`。
-- 不要实现假 PostgreSQL / SQLite 方言。
+- 当前项目实现 `MySQLDialect` 和 `SQLiteDialect`。
+- 不要实现假 PostgreSQL / SQL Server 方言。
 - 但接口设计必须允许后续扩展。
 - 所有自动生成 SQL 的地方应通过 `Dialect.Placeholder(index)` 生成占位符。
 - MySQL 返回 `?`。
@@ -1296,7 +1298,7 @@ Prompt：
 3. 实现 migration 表创建、Applied、Pending、Up、Down、History。
 4. 默认使用事务执行每个 migration。
 5. 添加 ErrIrreversibleMigration。
-6. 当前只实现 MySQLDialect，不要实现 SQLiteDialect、PostgresDialect 或 SQLServerDialect。
+6. 当前实现 MySQLDialect 和 SQLiteDialect，不要实现 PostgresDialect 或 SQLServerDialect。
 7. 添加基础单元测试。
 8. 代码必须 gofmt，go test ./... 通过。
 ```
@@ -1339,7 +1341,7 @@ Prompt：
 7. 支持表注释和字段注释。
 8. 支持 ColumnBuilder 的所有 MySQL SQL 输出。
 9. QuoteIndexColumn 遇到 LOWER(email)、JSON_EXTRACT(...) 等表达式时不能错误加反引号。
-10. 当前只实现 MySQLDialect，不要添加其他数据库方言。
+10. 当前实现 MySQLDialect 和 SQLiteDialect，不要添加 PostgreSQL 或 SQL Server 方言。
 11. 添加 mysql_dialect_test.go。
 12. go test ./... 必须通过。
 ```
@@ -1401,7 +1403,7 @@ Prompt：
 8. CountRows 使用 Dialect.BuildCountRowsSQL。
 9. Dialect 增加 BuildRowExistsSQL、BuildCountRowsSQL、Placeholder。
 10. MySQLDialect 实现这些方法。
-11. 当前只实现 MySQL，不要添加 SQLiteDialect 或 PostgresDialect。
+11. 当前实现 MySQL 和 SQLite，不要添加 PostgresDialect 或 SQLServerDialect。
 12. 添加 query_test.go。
 13. MySQL 集成测试只在 MYSQL_TEST_DSN 存在时运行。
 14. gofmt。
@@ -1515,8 +1517,8 @@ Prompt：
 要求：
 1. README 说明安装、初始化、配置 DB_DSN。
 2. README 说明 up/down/redo/history/create 用法。
-3. README 明确说明当前版本仅支持 MySQL。
-4. README 不要宣称支持 SQLite/PostgreSQL/SQL Server。
+3. README 明确说明当前版本支持 MySQL 和 SQLite。
+4. README 不要宣称支持 PostgreSQL/SQL Server。
 5. README 提供完整迁移示例。
 6. README 提供字段 builder 对照表。
 7. README 提供 Yii2 到 Go API 对照表。
@@ -1550,8 +1552,8 @@ Use Go.
 - Keep public APIs simple and documented.
 - Do not introduce ORM dependencies.
 - Use `database/sql`.
-- MySQL is the only supported dialect in the current phase.
-- Do not implement fake or incomplete SQLite, PostgreSQL, or SQL Server dialects.
+- MySQL and SQLite are the supported dialects in the current phase.
+- Do not implement fake or incomplete PostgreSQL or SQL Server dialects.
 - Preserve Yii2-like developer experience where possible.
 
 ## Style
@@ -1612,7 +1614,7 @@ if !exists {
 - Do not use unordered map iteration for CREATE TABLE column order.
 - Do not execute SQL in dry-run mode.
 - Do not quote SQL expressions like `LOWER(email)` as normal column names.
-- Do not implement SQLiteDialect, PostgresDialect, or SQLServerDialect in the current phase.
+- Do not implement PostgresDialect or SQLServerDialect in the current phase.
 ```
 
 ---
@@ -1705,7 +1707,7 @@ func (M20260612_120000CreateArticleTable) Up(ctx context.Context, m *migrate.Mig
 
 ## 21. 关键决策总结
 
-1. 当前只实现 MySQL，不实现其他数据库方言。
+1. 当前实现 MySQL 和 SQLite；PostgreSQL 和 SQL Server 不在当前范围。
 2. Dialect 接口要为后续数据库预留扩展点。
 3. 字段声明使用不可变链式 `ColumnBuilder`。
 4. 建表字段必须使用有序 `ColumnList`。

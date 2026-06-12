@@ -16,8 +16,8 @@ Use Go.
 - Keep public APIs simple and documented.
 - Do not introduce ORM dependencies.
 - Use `database/sql`.
-- MySQL is the only supported dialect in the current phase.
-- Do not implement fake or incomplete SQLite, PostgreSQL, or SQL Server dialects.
+- MySQL and SQLite are the supported dialects in the current phase.
+- Do not implement fake or incomplete PostgreSQL or SQL Server dialects.
 - Preserve Yii2-like developer experience where possible.
 
 ## Style
@@ -78,4 +78,4 @@ if !exists {
 - Do not use unordered map iteration for CREATE TABLE column order.
 - Do not execute SQL in dry-run mode.
 - Do not quote SQL expressions like `LOWER(email)` as normal column names.
-- Do not implement SQLiteDialect, PostgresDialect, or SQLServerDialect in the current phase.
+- Do not implement PostgresDialect or SQLServerDialect in the current phase.
