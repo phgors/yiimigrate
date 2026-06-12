@@ -1,6 +1,9 @@
 package migrate
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 // MySQLDialect builds SQL for MySQL databases.
 type MySQLDialect struct{}
@@ -52,6 +55,64 @@ func (d MySQLDialect) DeleteMigrationSQL(table string) string {
 		" WHERE " + d.QuoteColumn("version") + " = " + d.Placeholder(1)
 }
 
+func (d MySQLDialect) columnSQL(builder *ColumnBuilder) string {
+	if builder == nil {
+		return ""
+	}
+
+	parts := []string{builder.sqlType}
+	if builder.unsigned {
+		parts = append(parts, "UNSIGNED")
+	}
+	if builder.charset != "" {
+		parts = append(parts, "CHARACTER SET "+builder.charset)
+	}
+	if builder.collation != "" {
+		parts = append(parts, "COLLATE "+builder.collation)
+	}
+	if builder.generatedAs != "" {
+		parts = append(parts, "GENERATED ALWAYS AS ("+builder.generatedAs+")")
+		if builder.generatedStorage != "" {
+			parts = append(parts, builder.generatedStorage)
+		}
+	}
+	if builder.nullable != nil {
+		if *builder.nullable {
+			parts = append(parts, "NULL")
+		} else {
+			parts = append(parts, "NOT NULL")
+		}
+	}
+	if builder.autoIncrement {
+		parts = append(parts, "AUTO_INCREMENT")
+	}
+	if builder.primaryKey {
+		parts = append(parts, "PRIMARY KEY")
+	}
+	if builder.unique {
+		parts = append(parts, "UNIQUE")
+	}
+	if builder.hasDefaultValue {
+		parts = append(parts, "DEFAULT "+formatSQLLiteral(builder.defaultValue))
+	}
+	if builder.defaultExpression != "" {
+		parts = append(parts, "DEFAULT "+builder.defaultExpression)
+	}
+	if builder.comment != "" {
+		parts = append(parts, "COMMENT "+quoteSQLString(builder.comment))
+	}
+	if builder.check != "" {
+		parts = append(parts, "CHECK ("+builder.check+")")
+	}
+	parts = append(parts, builder.appendSQL...)
+	if builder.first {
+		parts = append(parts, "FIRST")
+	} else if builder.after != "" {
+		parts = append(parts, "AFTER "+d.QuoteColumn(builder.after))
+	}
+	return strings.Join(parts, " ")
+}
+
 func quoteDottedIdentifier(name string) string {
 	if name == "" {
 		return "``"
@@ -65,4 +126,26 @@ func quoteDottedIdentifier(name string) string {
 
 func quoteIdentifier(name string) string {
 	return "`" + strings.ReplaceAll(name, "`", "``") + "`"
+}
+
+func formatSQLLiteral(value any) string {
+	switch v := value.(type) {
+	case nil:
+		return "NULL"
+	case string:
+		return quoteSQLString(v)
+	case []byte:
+		return quoteSQLString(string(v))
+	case bool:
+		if v {
+			return "1"
+		}
+		return "0"
+	default:
+		return fmt.Sprint(v)
+	}
+}
+
+func quoteSQLString(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", "''") + "'"
 }
