@@ -74,7 +74,7 @@ func resolveDBConfig(name string) (dbConfig, error) {
 	case "sqlite", "sqlite3":
 		return dbConfig{driverName: "sqlite", dialect: migrate.SQLiteDialect{}}, nil
 	default:
-		return dbConfig{}, fmt.Errorf("unsupported DB_DIALECT %q; supported values: mysql, sqlite", name)
+		return dbConfig{}, fmt.Errorf("unsupported DB_DIALECT %q; supported values: mysql, sqlite, sqlite3", name)
 	}
 }
 

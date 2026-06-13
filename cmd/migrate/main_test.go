@@ -21,7 +21,7 @@ func TestResolveDBConfigDefaultsToMySQL(t *testing.T) {
 }
 
 func TestResolveDBConfigSupportsSQLiteAliases(t *testing.T) {
-	tests := []string{"sqlite", "sqlite3"}
+	tests := []string{"sqlite", "sqlite3", " SQLite3 "}
 	for _, input := range tests {
 		t.Run(input, func(t *testing.T) {
 			config, err := resolveDBConfig(input)
@@ -46,7 +46,7 @@ func TestResolveDBConfigRejectsUnsupportedDialect(t *testing.T) {
 	if !strings.Contains(err.Error(), `unsupported DB_DIALECT "postgres"`) {
 		t.Fatalf("error = %v", err)
 	}
-	if !strings.Contains(err.Error(), "mysql, sqlite") {
+	if !strings.Contains(err.Error(), "mysql, sqlite, sqlite3") {
 		t.Fatalf("error does not list supported dialects: %v", err)
 	}
 }
