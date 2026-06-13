@@ -2,14 +2,14 @@
 
 `yiimigrate` 是一个受 Yii2 Migration 启发的 Go 数据库迁移库。它使用 Go 标准库 `database/sql`，提供接近 Yii2 的字段声明、Schema 操作、迁移执行、dry-run、迁移锁和查询辅助方法。
 
-当前阶段仅支持 MySQL。SQLite、PostgreSQL、SQL Server 尚未实现，也不会在当前版本中以半成品方言暴露。
+当前版本采用多方言架构，已实现并测试 MySQL 和 SQLite。PostgreSQL、SQL Server 等数据库应通过真实 Dialect 逐步加入；README 只宣称已经实现并覆盖测试的数据库。
 
 ## 特性
 
 - 基于 `migration` 表记录已执行迁移。
 - 支持 `up`、`down`、`redo`、`history`、`new`、`mark`、`to`、`create` 命令。
 - 默认用事务执行每个 migration。
-- MySQL 下使用 `GET_LOCK` / `RELEASE_LOCK` 串行化迁移。
+- MySQL 下使用 `GET_LOCK` / `RELEASE_LOCK` 串行化迁移；SQLite 等不支持 advisory lock 的方言会返回明确错误，调用方可关闭 `UseLock`。
 - 支持 dry-run，预览 SQL 但不执行迁移 SQL。
 - 支持不可变链式 `ColumnBuilder`。
 - 支持有序 `ColumnList`，保证 `CREATE TABLE` 字段顺序稳定。
@@ -155,7 +155,8 @@ func (M20260613_120000CreateArticleTable) Down(ctx context.Context, m *migrate.M
 
 | 变量 | 说明 |
 | --- | --- |
-| `DB_DSN` | MySQL DSN，例如 `root:password@tcp(127.0.0.1:3306)/test?parseTime=true` |
+| `DB_DIALECT` | 数据库方言，支持 `mysql`、`sqlite`，默认 `mysql` |
+| `DB_DSN` | 数据库 DSN；MySQL 示例：`root:password@tcp(127.0.0.1:3306)/test?parseTime=true`；SQLite 示例：`file:dev.db` |
 | `MIGRATE_DRY_RUN` | 设置为 `1`、`true`、`TRUE` 或 `yes` 时启用 dry-run |
 | `MIGRATE_TABLE` | 自定义迁移记录表名，默认 `migration` |
 
@@ -496,13 +497,22 @@ go test ./...
 
 ## MySQL 注意事项
 
-- 当前仅实现 `MySQLDialect`。
+- 使用 `MySQLDialect`。
 - 标识符使用反引号 quote。
 - 占位符使用 `?`。
 - 索引列支持表达式，例如 `LOWER(email)`、`JSON_EXTRACT(...)`，不会被错误当作普通列名 quote。
 - 表、字段、索引、外键、约束存在判断通过 `information_schema` 完成。
 - 并发迁移锁通过 `GET_LOCK` / `RELEASE_LOCK` 完成。
 - 不包含 ORM 依赖，不使用 GORM。
+
+## SQLite 注意事项
+
+- 使用 `SQLiteDialect`，CLI 中设置 `DB_DIALECT=sqlite`。
+- 标识符使用双引号 quote。
+- 占位符使用 `?`。
+- SQLite 支持 `CREATE TABLE`、`DROP TABLE`、`RENAME TABLE`、`ADD COLUMN`、索引和 DML。
+- SQLite 不支持的后置 DDL 操作会返回 `UnsupportedOperationError`，例如 `ALTER COLUMN`、`DROP COLUMN`、后置外键和注释。
+- SQLite advisory lock 不可用；运行 mutating CLI 命令时需要关闭 `UseLock` 的场景应通过后续配置项处理。
 
 ## Yii2 到 Go API 对照
 

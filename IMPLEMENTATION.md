@@ -1481,7 +1481,7 @@ Prompt：
 10. 从 MIGRATE_DRY_RUN 读取 dry-run 配置。
 11. 从 MIGRATE_TABLE 读取 migration 表名。
 12. CLI 错误需要清晰输出并以非 0 状态退出。
-13. 根据配置选择已实现的数据库方言。
+13. 根据 `DB_DIALECT` 选择已实现的数据库方言，默认 `mysql`，支持 `sqlite`。
 14. go test ./... 必须通过。
 ```
 
