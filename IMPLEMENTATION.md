@@ -1,7 +1,7 @@
 # Go 复刻 Yii2 Migration 数据迁移库实施文档
 
 > 目标：使用 Go 实现一个接近 Yii2 Migration 使用体验的数据迁移库。
-> 当前阶段：交付 MySQLDialect 和 SQLiteDialect。PostgreSQL、SQL Server 只预留接口，不实现、不暴露、不在 README 宣称支持。
+> 当前方向：以真实、可测试的方言实现逐步适配 Yii2 Migration 的多数据库体验；每个新方言必须明确自身支持能力，并对数据库无法提供的操作返回清晰错误。
 > 适用对象：准备使用 Codex 分阶段完成开发的 Go 项目。
 
 ---
@@ -58,7 +58,7 @@ m.QueryAll(ctx, "SELECT * FROM user WHERE status = ?", 10)
 m.QueryValue(ctx, "SELECT COUNT(*) FROM user")
 ```
 
-8. 当前阶段实现 MySQL 和 SQLite，其他数据库只做接口预留。
+8. 通过 Dialect 抽象逐步支持更多数据库，已实现的方言必须真实可用、可测试。
 
 ---
 
@@ -89,7 +89,7 @@ m.QueryValue(ctx, "SELECT COUNT(*) FROM user")
 - 复杂 schema diff
 - 多租户连接管理
 - GUI
-- PostgreSQL、SQL Server 等其他方言的完整实现
+- 未经测试验证的数据库方言
 
 ---
 
@@ -366,28 +366,28 @@ migrate.Columns().
 
 ## 8. Dialect 设计
 
-### 8.1 当前数据库支持范围
+### 8.1 数据库支持范围
 
-当前版本交付：
+项目通过方言类型声明数据库支持。已实现方言示例：
 
 ```go
 type MySQLDialect struct{}
 type SQLiteDialect struct{}
 ```
 
-不允许在当前阶段提供未完成的：
+后续可以继续增加真实方言，例如：
 
 ```go
 type PostgresDialect struct{}
 type SQLServerDialect struct{}
 ```
 
-原因：
+方言实现原则：
 
-1. 容易让使用者误以为已经支持。
-2. 不同数据库的 DDL 差异很大。
-3. 半成品方言会导致迁移失败或数据损坏。
-4. 当前目标是把 MySQL 和 SQLite 做完整、稳定、可测试。
+1. 公开的方言必须有 SQL 生成单元测试。
+2. 不同数据库的 DDL 差异必须体现在方言代码和能力错误中。
+3. 数据库无法提供的操作必须返回明确错误，不能生成误导性 SQL。
+4. README 只能宣称已经真实实现并通过测试的数据库。
 
 ### 8.2 Dialect 接口
 
@@ -796,7 +796,7 @@ username := row["username"]
 
 ### 10.9 Dialect 查询 SQL 构造
 
-为了当前支持 MySQL，同时给 SQLite / PostgreSQL / SQL Server 预留空间，`Dialect` 接口需要包含：
+为了支持多数据库，`Dialect` 接口需要包含：
 
 ```go
 BuildRowExistsSQL(table string, condition string) string
@@ -836,9 +836,8 @@ func (d MySQLDialect) Placeholder(index int) string {
 
 注意：
 
-- 当前项目实现 `MySQLDialect` 和 `SQLiteDialect`。
-- 不要实现假 PostgreSQL / SQL Server 方言。
-- 但接口设计必须允许后续扩展。
+- 已实现方言必须真实可用并覆盖 SQL 生成测试。
+- 接口设计必须允许后续扩展更多数据库。
 - 所有自动生成 SQL 的地方应通过 `Dialect.Placeholder(index)` 生成占位符。
 - MySQL 返回 `?`。
 - PostgreSQL 后续可以返回 `$1`、`$2`、`$3`。
@@ -1298,7 +1297,7 @@ Prompt：
 3. 实现 migration 表创建、Applied、Pending、Up、Down、History。
 4. 默认使用事务执行每个 migration。
 5. 添加 ErrIrreversibleMigration。
-6. 当前实现 MySQLDialect 和 SQLiteDialect，不要实现 PostgresDialect 或 SQLServerDialect。
+6. 实现首批真实可用的 Dialect，并保持接口可继续扩展更多数据库。
 7. 添加基础单元测试。
 8. 代码必须 gofmt，go test ./... 通过。
 ```
@@ -1341,7 +1340,7 @@ Prompt：
 7. 支持表注释和字段注释。
 8. 支持 ColumnBuilder 的所有 MySQL SQL 输出。
 9. QuoteIndexColumn 遇到 LOWER(email)、JSON_EXTRACT(...) 等表达式时不能错误加反引号。
-10. 当前实现 MySQLDialect 和 SQLiteDialect，不要添加 PostgreSQL 或 SQL Server 方言。
+10. 新增数据库方言时必须提供真实 SQL 生成实现和测试覆盖。
 11. 添加 mysql_dialect_test.go。
 12. go test ./... 必须通过。
 ```
@@ -1380,7 +1379,7 @@ Prompt：
 8. DML 中 Expression 不应被作为参数绑定，而是直接写入 SQL。
 9. 普通值必须使用参数绑定。
 10. 所有占位符通过 Dialect.Placeholder(index) 生成。
-11. 当前 MySQL 返回 ?。
+11. MySQL 和 SQLite 返回 ?，PostgreSQL 等后续方言可按数据库规则返回不同占位符。
 12. 添加 dml_test.go。
 13. go test ./... 必须通过。
 ```
@@ -1403,7 +1402,7 @@ Prompt：
 8. CountRows 使用 Dialect.BuildCountRowsSQL。
 9. Dialect 增加 BuildRowExistsSQL、BuildCountRowsSQL、Placeholder。
 10. MySQLDialect 实现这些方法。
-11. 当前实现 MySQL 和 SQLite，不要添加 PostgresDialect 或 SQLServerDialect。
+11. 已实现的 Dialect 必须提供这些方法，新增方言也必须补齐对应测试。
 12. 添加 query_test.go。
 13. MySQL 集成测试只在 MYSQL_TEST_DSN 存在时运行。
 14. gofmt。
@@ -1482,7 +1481,7 @@ Prompt：
 10. 从 MIGRATE_DRY_RUN 读取 dry-run 配置。
 11. 从 MIGRATE_TABLE 读取 migration 表名。
 12. CLI 错误需要清晰输出并以非 0 状态退出。
-13. 当前只支持 MySQL。
+13. 根据配置选择已实现的数据库方言。
 14. go test ./... 必须通过。
 ```
 
@@ -1517,8 +1516,8 @@ Prompt：
 要求：
 1. README 说明安装、初始化、配置 DB_DSN。
 2. README 说明 up/down/redo/history/create 用法。
-3. README 明确说明当前版本支持 MySQL 和 SQLite。
-4. README 不要宣称支持 PostgreSQL/SQL Server。
+3. README 明确说明当前版本已经真实支持的数据库。
+4. README 不宣称未经实现和测试验证的数据库。
 5. README 提供完整迁移示例。
 6. README 提供字段 builder 对照表。
 7. README 提供 Yii2 到 Go API 对照表。
@@ -1552,8 +1551,8 @@ Use Go.
 - Keep public APIs simple and documented.
 - Do not introduce ORM dependencies.
 - Use `database/sql`.
-- MySQL and SQLite are the supported dialects in the current phase.
-- Do not implement fake or incomplete PostgreSQL or SQL Server dialects.
+- Design the dialect layer so the library can grow toward full Yii2-style multi-database support.
+- New dialects should be implemented as real, tested dialects with explicit unsupported-operation errors where the database cannot provide an operation.
 - Preserve Yii2-like developer experience where possible.
 
 ## Style
@@ -1614,7 +1613,6 @@ if !exists {
 - Do not use unordered map iteration for CREATE TABLE column order.
 - Do not execute SQL in dry-run mode.
 - Do not quote SQL expressions like `LOWER(email)` as normal column names.
-- Do not implement PostgresDialect or SQLServerDialect in the current phase.
 ```
 
 ---
@@ -1707,8 +1705,8 @@ func (M20260612_120000CreateArticleTable) Up(ctx context.Context, m *migrate.Mig
 
 ## 21. 关键决策总结
 
-1. 当前实现 MySQL 和 SQLite；PostgreSQL 和 SQL Server 不在当前范围。
-2. Dialect 接口要为后续数据库预留扩展点。
+1. 通过真实、可测试的 Dialect 实现逐步支持更多数据库。
+2. Dialect 接口要为 MySQL、SQLite、PostgreSQL、SQL Server 等数据库保留扩展点。
 3. 字段声明使用不可变链式 `ColumnBuilder`。
 4. 建表字段必须使用有序 `ColumnList`。
 5. DDL / DML 写操作使用 `SchemaPlan` 链式队列。
