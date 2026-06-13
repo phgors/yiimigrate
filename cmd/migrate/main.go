@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/lib/pq"
+	_ "github.com/microsoft/go-mssqldb"
 	_ "modernc.org/sqlite"
 
 	"github.com/phgors/yiimigrate/internal/generator"
@@ -73,8 +75,12 @@ func resolveDBConfig(name string) (dbConfig, error) {
 		return dbConfig{driverName: "mysql", dialect: migrate.MySQLDialect{}}, nil
 	case "sqlite", "sqlite3":
 		return dbConfig{driverName: "sqlite", dialect: migrate.SQLiteDialect{}}, nil
+	case "postgres", "postgresql":
+		return dbConfig{driverName: "postgres", dialect: migrate.PostgreSQLDialect{}}, nil
+	case "sqlserver", "mssql":
+		return dbConfig{driverName: "sqlserver", dialect: migrate.SQLServerDialect{}}, nil
 	default:
-		return dbConfig{}, fmt.Errorf("unsupported DB_DIALECT %q; supported values: mysql, sqlite, sqlite3", name)
+		return dbConfig{}, fmt.Errorf("unsupported DB_DIALECT %q; supported values: mysql, sqlite, postgres, sqlserver", name)
 	}
 }
 
