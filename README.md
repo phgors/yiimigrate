@@ -156,7 +156,7 @@ func (M20260613_120000CreateArticleTable) Down(ctx context.Context, m *migrate.M
 
 | 变量 | 说明 |
 | --- | --- |
-| `DB_DIALECT` | 数据库方言，支持 `mysql`、`sqlite`，默认 `mysql` |
+| `DB_DIALECT` | 数据库方言，支持 `mysql`、`sqlite`、`sqlite3`，默认 `mysql` |
 | `DB_DSN` | 数据库 DSN；MySQL 示例：`root:password@tcp(127.0.0.1:3306)/test?parseTime=true`；SQLite 示例：`file:dev.db` |
 | `MIGRATE_DRY_RUN` | 设置为 `1`、`true`、`TRUE` 或 `yes` 时启用 dry-run |
 | `MIGRATE_TABLE` | 自定义迁移记录表名，默认 `migration` |
@@ -441,7 +441,7 @@ MySQL 使用 `information_schema` 查询对象是否存在。
 
 ## 迁移锁和 dry-run
 
-mutating 命令会默认使用 MySQL advisory lock：
+使用 `MySQLDialect` 时，mutating 命令会默认使用 MySQL advisory lock：
 
 ```sql
 SELECT GET_LOCK(?, ?)
