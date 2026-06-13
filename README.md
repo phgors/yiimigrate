@@ -24,10 +24,11 @@
 go get github.com/phgors/yiimigrate
 ```
 
-CLI 使用 MySQL 驱动：
+CLI 已内置 MySQL 和 SQLite 驱动：
 
 ```go
 import _ "github.com/go-sql-driver/mysql"
+import _ "modernc.org/sqlite"
 ```
 
 ## 快速开始
@@ -159,6 +160,8 @@ func (M20260613_120000CreateArticleTable) Down(ctx context.Context, m *migrate.M
 | `DB_DSN` | 数据库 DSN；MySQL 示例：`root:password@tcp(127.0.0.1:3306)/test?parseTime=true`；SQLite 示例：`file:dev.db` |
 | `MIGRATE_DRY_RUN` | 设置为 `1`、`true`、`TRUE` 或 `yes` 时启用 dry-run |
 | `MIGRATE_TABLE` | 自定义迁移记录表名，默认 `migration` |
+
+`DB_DIALECT=sqlite` 可以选择 SQLite 方言；但当前 CLI 的 mutating 命令默认启用迁移锁，而 SQLite advisory lock 不可用，完整运行 SQLite mutating 命令还需要后续提供关闭锁的配置项。
 
 命令：
 
@@ -507,11 +510,13 @@ go test ./...
 
 ## SQLite 注意事项
 
-- 使用 `SQLiteDialect`，CLI 中设置 `DB_DIALECT=sqlite`。
+- 使用 `SQLiteDialect`，CLI 中设置 `DB_DIALECT=sqlite` 可选择 SQLite 方言；当前 stock CLI mutating 命令默认 `UseLock=true`，需要后续 lock-disable 配置项后才能完整用于 SQLite 写迁移。
 - 标识符使用双引号 quote。
 - 占位符使用 `?`。
 - SQLite 支持 `CREATE TABLE`、`DROP TABLE`、`RENAME TABLE`、`ADD COLUMN`、索引和 DML。
-- SQLite 不支持的后置 DDL 操作会返回 `UnsupportedOperationError`，例如 `ALTER COLUMN`、`DROP COLUMN`、后置外键和注释。
+- `CreateTable` 不接受非空表选项；MySQL 的 `ENGINE=InnoDB DEFAULT CHARSET=utf8mb4` 等表选项在 SQLite 迁移中必须省略。
+- SQLite 不支持的后置 DDL 操作会返回 `UnsupportedOperationError`，例如 `ALTER COLUMN`、`DROP COLUMN`、后置外键、表注释和字段注释。
+- SQLite 字段声明不支持 column comment、`AFTER`、`FIRST`、charset 和 collation。
 - SQLite advisory lock 不可用；运行 mutating CLI 命令时需要关闭 `UseLock` 的场景应通过后续配置项处理。
 
 ## Yii2 到 Go API 对照
