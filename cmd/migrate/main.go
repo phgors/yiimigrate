@@ -8,8 +8,10 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
+	_ "modernc.org/sqlite"
 
 	"github.com/phgors/yiimigrate/internal/generator"
 	"github.com/phgors/yiimigrate/migrate"
@@ -60,18 +62,38 @@ func runCreate(args []string) error {
 	return nil
 }
 
+type dbConfig struct {
+	driverName string
+	dialect    migrate.Dialect
+}
+
+func resolveDBConfig(name string) (dbConfig, error) {
+	switch strings.ToLower(strings.TrimSpace(name)) {
+	case "", "mysql":
+		return dbConfig{driverName: "mysql", dialect: migrate.MySQLDialect{}}, nil
+	case "sqlite", "sqlite3":
+		return dbConfig{driverName: "sqlite", dialect: migrate.SQLiteDialect{}}, nil
+	default:
+		return dbConfig{}, fmt.Errorf("unsupported DB_DIALECT %q; supported values: mysql, sqlite", name)
+	}
+}
+
 func runDBCommand(command string, args []string) error {
 	dsn := os.Getenv("DB_DSN")
 	if dsn == "" {
 		return errors.New("DB_DSN is required")
 	}
-	db, err := sql.Open("mysql", dsn)
+	config, err := resolveDBConfig(os.Getenv("DB_DIALECT"))
+	if err != nil {
+		return err
+	}
+	db, err := sql.Open(config.driverName, dsn)
 	if err != nil {
 		return err
 	}
 	defer db.Close()
 
-	migrator := migrate.NewMigrator(db, migrate.MySQLDialect{}, migrations.All())
+	migrator := migrate.NewMigrator(db, config.dialect, migrations.All())
 	if table := os.Getenv("MIGRATE_TABLE"); table != "" {
 		migrator.MigrationTable = table
 	}
