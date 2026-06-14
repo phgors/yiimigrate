@@ -320,6 +320,17 @@ func (p *SchemaPlan) Delete(table string, condition string, args ...any) *Schema
 	return p.addStatement(p.ctx.dialect.Delete(table, condition, args...))
 }
 
+// Statements returns a defensive copy of the SQL statements accumulated by
+// the plan. It is intended for inspection in tests (for example, asserting
+// generated SQL in dry-run mode); production code should normally call Exec.
+func (p *SchemaPlan) Statements() []SQLStatement {
+	out := make([]SQLStatement, len(p.statements))
+	for i, s := range p.statements {
+		out[i] = SQLStatement{Query: s.Query, Args: append([]any(nil), s.Args...)}
+	}
+	return out
+}
+
 // Exec executes the plan in order unless dry-run is enabled.
 func (p *SchemaPlan) Exec(ctx context.Context) error {
 	if p.err != nil {

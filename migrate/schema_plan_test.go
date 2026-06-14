@@ -99,3 +99,32 @@ func TestSchemaPlanStopsOnAccumulatedError(t *testing.T) {
 		t.Fatalf("plan with accumulated error executed %d statements", len(db.execCalls))
 	}
 }
+
+func TestSchemaPlanStatementsReturnsAccumulatedSQL(t *testing.T) {
+	m := NewMigrationContext(nil, SQLiteDialect{}, WithDryRun(true))
+
+	plan := m.Schema().
+		Raw(`CREATE TABLE "article" ("id" INTEGER)`).
+		Insert("article", Row{"id": 1, "title": "hi"})
+
+	stmts := plan.Statements()
+	if len(stmts) != 2 {
+		t.Fatalf("Statements() returned %d items, want 2", len(stmts))
+	}
+	if stmts[0].Query != `CREATE TABLE "article" ("id" INTEGER)` {
+		t.Fatalf("stmts[0].Query = %q", stmts[0].Query)
+	}
+	if !strings.Contains(stmts[1].Query, `INSERT INTO "article"`) {
+		t.Fatalf("stmts[1].Query = %q", stmts[1].Query)
+	}
+	if len(stmts[1].Args) != 2 {
+		t.Fatalf("stmts[1].Args = %v (len %d)", stmts[1].Args, len(stmts[1].Args))
+	}
+
+	// Mutating the returned slice must not corrupt the plan.
+	stmts[0] = SQLStatement{Query: "mutated"}
+	again := plan.Statements()
+	if again[0].Query != `CREATE TABLE "article" ("id" INTEGER)` {
+		t.Fatalf("plan statements mutated via returned slice: %q", again[0].Query)
+	}
+}
