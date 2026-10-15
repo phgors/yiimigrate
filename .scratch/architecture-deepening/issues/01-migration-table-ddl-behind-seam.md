@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 - [ ] Dialect interface 新增迁移历史表建表方法（列结构 version varchar(180) PK + apply_time int 由 Migrator 侧定义，adapter 只翻译语法）
 - [ ] 四个 adapter 各自实现：mysql/sqlite/postgres 用原生 IF NOT EXISTS，sqlserver 用 IF OBJECT_ID(...) IS NULL 形式
