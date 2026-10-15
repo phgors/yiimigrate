@@ -248,6 +248,18 @@ func (d SQLServerDialect) CreateTable(table string, columns *ColumnList, options
 	return fmt.Sprintf("CREATE TABLE %s (%s)", d.QuoteTable(table), strings.Join(defs, ", ")), nil
 }
 
+// CreateMigrationTableSQL builds idempotent SQL that creates the migration
+// table (version varchar(180) primary key, apply_time int) when it is absent.
+// SQL Server has no CREATE TABLE IF NOT EXISTS, so existence is checked via
+// OBJECT_ID before creating the table.
+func (d SQLServerDialect) CreateMigrationTableSQL(table string) (string, error) {
+	quoted := d.QuoteTable(table)
+	return fmt.Sprintf(
+		"IF OBJECT_ID(N'%s', 'U') IS NULL BEGIN CREATE TABLE %s (%s varchar(180) NOT NULL PRIMARY KEY, %s int NOT NULL) END",
+		quoted, quoted, d.QuoteColumn("version"), d.QuoteColumn("apply_time"),
+	), nil
+}
+
 // DropTable builds DROP TABLE SQL.
 func (d SQLServerDialect) DropTable(table string) (string, error) {
 	return "DROP TABLE IF EXISTS " + d.QuoteTable(table), nil

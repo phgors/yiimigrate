@@ -215,6 +215,15 @@ func (d MySQLDialect) CreateTable(table string, columns *ColumnList, options str
 	return fmt.Sprintf("CREATE TABLE %s (%s)%s", d.QuoteTable(table), strings.Join(defs, ", "), joinOptions(options)), nil
 }
 
+// CreateMigrationTableSQL builds idempotent SQL that creates the migration
+// table (version varchar(180) primary key, apply_time int) when it is absent.
+func (d MySQLDialect) CreateMigrationTableSQL(table string) (string, error) {
+	return fmt.Sprintf(
+		"CREATE TABLE IF NOT EXISTS %s (%s varchar(180) NOT NULL PRIMARY KEY, %s int NOT NULL)",
+		d.QuoteTable(table), d.QuoteColumn("version"), d.QuoteColumn("apply_time"),
+	), nil
+}
+
 // DropTable builds DROP TABLE SQL.
 func (d MySQLDialect) DropTable(table string) (string, error) {
 	return "DROP TABLE " + d.QuoteTable(table), nil

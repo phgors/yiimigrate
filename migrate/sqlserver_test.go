@@ -375,6 +375,20 @@ func TestSQLServerCreateTableWithOptionsUnsupported(t *testing.T) {
 	}
 }
 
+func TestSQLServerCreateMigrationTableSQL(t *testing.T) {
+	d := SQLServerDialect{}
+
+	got, err := d.CreateMigrationTableSQL("migration")
+	if err != nil {
+		t.Fatalf("CreateMigrationTableSQL returned error: %v", err)
+	}
+
+	want := "IF OBJECT_ID(N'[migration]', 'U') IS NULL BEGIN CREATE TABLE [migration] ([version] varchar(180) NOT NULL PRIMARY KEY, [apply_time] int NOT NULL) END"
+	if got != want {
+		t.Fatalf("CreateMigrationTableSQL:\n got: %s\nwant: %s", got, want)
+	}
+}
+
 func TestSQLServerDropTable(t *testing.T) {
 	d := SQLServerDialect{}
 	sql, err := d.DropTable("article")

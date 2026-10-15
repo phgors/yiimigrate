@@ -89,6 +89,30 @@ func TestMySQLCreateTableSQL(t *testing.T) {
 	}
 }
 
+func TestMySQLCreateMigrationTableSQL(t *testing.T) {
+	got, err := MySQLDialect{}.CreateMigrationTableSQL("migration")
+	if err != nil {
+		t.Fatalf("CreateMigrationTableSQL returned error: %v", err)
+	}
+
+	want := "CREATE TABLE IF NOT EXISTS `migration` (`version` varchar(180) NOT NULL PRIMARY KEY, `apply_time` int NOT NULL)"
+	if got != want {
+		t.Fatalf("CreateMigrationTableSQL:\n got: %s\nwant: %s", got, want)
+	}
+}
+
+func TestSQLiteCreateMigrationTableSQL(t *testing.T) {
+	got, err := SQLiteDialect{}.CreateMigrationTableSQL("migration")
+	if err != nil {
+		t.Fatalf("CreateMigrationTableSQL returned error: %v", err)
+	}
+
+	want := `CREATE TABLE IF NOT EXISTS "migration" ("version" varchar(180) NOT NULL PRIMARY KEY, "apply_time" int NOT NULL)`
+	if got != want {
+		t.Fatalf("CreateMigrationTableSQL:\n got: %s\nwant: %s", got, want)
+	}
+}
+
 func TestQuoteIndexColumnLeavesExpressions(t *testing.T) {
 	d := MySQLDialect{}
 	if got := d.QuoteIndexColumn("LOWER(email)"); got != "LOWER(email)" {

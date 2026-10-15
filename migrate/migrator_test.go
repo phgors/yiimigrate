@@ -15,14 +15,36 @@ import (
 	"testing"
 )
 
-func TestMigratorCreatesMigrationTableSQL(t *testing.T) {
-	migrator := NewMigrator(nil, MySQLDialect{}, nil)
+func TestMigratorEnsureMigrationTableExecutesDialectSQL(t *testing.T) {
+	state := newFakeSQLState()
+	db := openFakeSQLDB(t, state)
+	migrator := NewMigrator(db, MySQLDialect{}, nil)
 
-	got := migrator.createMigrationTableSQL()
+	if err := migrator.EnsureMigrationTable(context.Background()); err != nil {
+		t.Fatalf("EnsureMigrationTable() error = %v", err)
+	}
+
 	want := "CREATE TABLE IF NOT EXISTS `migration` (`version` varchar(180) NOT NULL PRIMARY KEY, `apply_time` int NOT NULL)"
+	queries := state.execQueries()
+	if len(queries) != 1 || queries[0] != want {
+		t.Fatalf("executed SQL = %#v, want [%s]", queries, want)
+	}
+}
 
-	if got != want {
-		t.Fatalf("createMigrationTableSQL() = %q, want %q", got, want)
+func TestMigratorEnsureMigrationTableUsesConfiguredTableName(t *testing.T) {
+	state := newFakeSQLState()
+	db := openFakeSQLDB(t, state)
+	migrator := NewMigrator(db, SQLServerDialect{}, nil)
+	migrator.MigrationTable = "custom_migration_history"
+
+	if err := migrator.EnsureMigrationTable(context.Background()); err != nil {
+		t.Fatalf("EnsureMigrationTable() error = %v", err)
+	}
+
+	want := "IF OBJECT_ID(N'[custom_migration_history]', 'U') IS NULL BEGIN CREATE TABLE [custom_migration_history] ([version] varchar(180) NOT NULL PRIMARY KEY, [apply_time] int NOT NULL) END"
+	queries := state.execQueries()
+	if len(queries) != 1 || queries[0] != want {
+		t.Fatalf("executed SQL = %#v, want [%s]", queries, want)
 	}
 }
 

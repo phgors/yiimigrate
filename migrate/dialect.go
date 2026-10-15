@@ -23,6 +23,7 @@ type Dialect interface {
 	BuildRowExistsSQL(table string, condition string) string
 	BuildCountRowsSQL(table string, condition string) string
 	CreateTable(table string, columns *ColumnList, options string) (string, error)
+	CreateMigrationTableSQL(table string) (string, error)
 	DropTable(table string) (string, error)
 	RenameTable(oldName, newName string) (string, error)
 	TruncateTable(table string) (string, error)

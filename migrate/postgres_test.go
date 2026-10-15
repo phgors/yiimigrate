@@ -309,6 +309,20 @@ func TestPostgreSQLCreateTable(t *testing.T) {
 	}
 }
 
+func TestPostgreSQLCreateMigrationTableSQL(t *testing.T) {
+	d := PostgreSQLDialect{}
+
+	got, err := d.CreateMigrationTableSQL("migration")
+	if err != nil {
+		t.Fatalf("CreateMigrationTableSQL returned error: %v", err)
+	}
+
+	want := `CREATE TABLE IF NOT EXISTS "migration" ("version" varchar(180) NOT NULL PRIMARY KEY, "apply_time" int NOT NULL)`
+	if got != want {
+		t.Fatalf("CreateMigrationTableSQL:\n got: %s\nwant: %s", got, want)
+	}
+}
+
 func TestPostgreSQLCreateTableWithOptions(t *testing.T) {
 	m := newPg()
 	d := PostgreSQLDialect{}

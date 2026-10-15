@@ -53,11 +53,15 @@ func NewMigrator(db *sql.DB, dialect Dialect, migrations []Migration) *Migrator 
 
 // EnsureMigrationTable creates the migration table when it does not exist.
 func (m *Migrator) EnsureMigrationTable(ctx context.Context) error {
+	statement, err := m.dialect.CreateMigrationTableSQL(m.migrationTable())
+	if err != nil {
+		return err
+	}
 	if m.DryRun {
-		m.logSQL(m.createMigrationTableSQL())
+		m.logSQL(statement)
 		return nil
 	}
-	_, err := m.db.ExecContext(ctx, m.createMigrationTableSQL())
+	_, err = m.db.ExecContext(ctx, statement)
 	return err
 }
 
@@ -377,12 +381,6 @@ func (m *Migrator) migrationTable() string {
 		return DefaultMigrationTable
 	}
 	return m.MigrationTable
-}
-
-func (m *Migrator) createMigrationTableSQL() string {
-	return "CREATE TABLE IF NOT EXISTS " + m.dialect.QuoteTable(m.migrationTable()) +
-		" (" + m.dialect.QuoteColumn("version") + " varchar(180) NOT NULL PRIMARY KEY, " +
-		m.dialect.QuoteColumn("apply_time") + " int NOT NULL)"
 }
 
 func (m *Migrator) selectAppliedMigrationsSQL(descending bool) string {
