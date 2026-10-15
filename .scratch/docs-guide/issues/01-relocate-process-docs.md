@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 - [ ] docs/ 下 compose/、superpowers/ 过程文档经 git mv 迁入 dev-docs/（保持可读的子目录结构，如 plans/specs 分组）
 - [ ] 根目录 IMPLEMENTATION.md 迁入 dev-docs/
