@@ -37,6 +37,27 @@ func (p *SchemaPlan) addStatement(stmt SQLStatement, err error) *SchemaPlan {
 	return p
 }
 
+// existenceGuard is the single guard shared by every *IfExists plan variant.
+// In dry-run mode emit runs unconditionally so the statement stays visible for
+// inspection. Otherwise probe reports whether the guarded object exists: a
+// probe failure is recorded on the plan, and emit runs only when the existence
+// result matches emitOnExists — true for drop variants (emit when the object
+// exists), false for create/add variants (emit when it is absent).
+func (p *SchemaPlan) existenceGuard(ctx context.Context, emitOnExists bool, probe func(context.Context) (bool, error), emit func() *SchemaPlan) *SchemaPlan {
+	if p.ctx.dryRun {
+		return emit()
+	}
+	exists, err := probe(ctx)
+	if err != nil {
+		p.err = err
+		return p
+	}
+	if exists != emitOnExists {
+		return p
+	}
+	return emit()
+}
+
 // Raw appends a raw SQL statement.
 func (p *SchemaPlan) Raw(sql string, args ...any) *SchemaPlan {
 	return p.add(sql, nil, args...)
@@ -50,17 +71,9 @@ func (p *SchemaPlan) CreateTable(table string, columns *ColumnList, options ...s
 
 // CreateTableIfNotExists appends CREATE TABLE when the table is absent.
 func (p *SchemaPlan) CreateTableIfNotExists(ctx context.Context, table string, columns *ColumnList, options ...string) *SchemaPlan {
-	if p.ctx.dryRun {
-		return p.CreateTable(table, columns, options...)
-	}
-	exists, err := p.ctx.TableExists(ctx, table)
-	if err != nil || exists {
-		if err != nil {
-			p.err = err
-		}
-		return p
-	}
-	return p.CreateTable(table, columns, options...)
+	return p.existenceGuard(ctx, false,
+		func(c context.Context) (bool, error) { return p.ctx.TableExists(c, table) },
+		func() *SchemaPlan { return p.CreateTable(table, columns, options...) })
 }
 
 // DropTable appends a DROP TABLE statement.
@@ -71,17 +84,9 @@ func (p *SchemaPlan) DropTable(table string) *SchemaPlan {
 
 // DropTableIfExists appends DROP TABLE when the table exists.
 func (p *SchemaPlan) DropTableIfExists(ctx context.Context, table string) *SchemaPlan {
-	if p.ctx.dryRun {
-		return p.DropTable(table)
-	}
-	exists, err := p.ctx.TableExists(ctx, table)
-	if err != nil || !exists {
-		if err != nil {
-			p.err = err
-		}
-		return p
-	}
-	return p.DropTable(table)
+	return p.existenceGuard(ctx, true,
+		func(c context.Context) (bool, error) { return p.ctx.TableExists(c, table) },
+		func() *SchemaPlan { return p.DropTable(table) })
 }
 
 // RenameTable appends a table rename statement.
@@ -104,17 +109,9 @@ func (p *SchemaPlan) AddColumn(table, column string, builder *ColumnBuilder) *Sc
 
 // AddColumnIfNotExists appends ADD COLUMN when the column is absent.
 func (p *SchemaPlan) AddColumnIfNotExists(ctx context.Context, table, column string, builder *ColumnBuilder) *SchemaPlan {
-	if p.ctx.dryRun {
-		return p.AddColumn(table, column, builder)
-	}
-	exists, err := p.ctx.ColumnExists(ctx, table, column)
-	if err != nil || exists {
-		if err != nil {
-			p.err = err
-		}
-		return p
-	}
-	return p.AddColumn(table, column, builder)
+	return p.existenceGuard(ctx, false,
+		func(c context.Context) (bool, error) { return p.ctx.ColumnExists(c, table, column) },
+		func() *SchemaPlan { return p.AddColumn(table, column, builder) })
 }
 
 // AlterColumn appends an ALTER COLUMN statement.
@@ -131,17 +128,9 @@ func (p *SchemaPlan) DropColumn(table, column string) *SchemaPlan {
 
 // DropColumnIfExists appends DROP COLUMN when the column exists.
 func (p *SchemaPlan) DropColumnIfExists(ctx context.Context, table, column string) *SchemaPlan {
-	if p.ctx.dryRun {
-		return p.DropColumn(table, column)
-	}
-	exists, err := p.ctx.ColumnExists(ctx, table, column)
-	if err != nil || !exists {
-		if err != nil {
-			p.err = err
-		}
-		return p
-	}
-	return p.DropColumn(table, column)
+	return p.existenceGuard(ctx, true,
+		func(c context.Context) (bool, error) { return p.ctx.ColumnExists(c, table, column) },
+		func() *SchemaPlan { return p.DropColumn(table, column) })
 }
 
 // RenameColumn appends a column rename statement.
@@ -158,17 +147,9 @@ func (p *SchemaPlan) CreateIndex(name, table string, columns []string, unique bo
 
 // CreateIndexIfNotExists appends CREATE INDEX when the index is absent.
 func (p *SchemaPlan) CreateIndexIfNotExists(ctx context.Context, name, table string, columns []string, unique bool) *SchemaPlan {
-	if p.ctx.dryRun {
-		return p.CreateIndex(name, table, columns, unique)
-	}
-	exists, err := p.ctx.IndexExists(ctx, table, name)
-	if err != nil || exists {
-		if err != nil {
-			p.err = err
-		}
-		return p
-	}
-	return p.CreateIndex(name, table, columns, unique)
+	return p.existenceGuard(ctx, false,
+		func(c context.Context) (bool, error) { return p.ctx.IndexExists(c, table, name) },
+		func() *SchemaPlan { return p.CreateIndex(name, table, columns, unique) })
 }
 
 // DropIndex appends a DROP INDEX statement.
@@ -179,17 +160,9 @@ func (p *SchemaPlan) DropIndex(name, table string) *SchemaPlan {
 
 // DropIndexIfExists appends DROP INDEX when the index exists.
 func (p *SchemaPlan) DropIndexIfExists(ctx context.Context, name, table string) *SchemaPlan {
-	if p.ctx.dryRun {
-		return p.DropIndex(name, table)
-	}
-	exists, err := p.ctx.IndexExists(ctx, table, name)
-	if err != nil || !exists {
-		if err != nil {
-			p.err = err
-		}
-		return p
-	}
-	return p.DropIndex(name, table)
+	return p.existenceGuard(ctx, true,
+		func(c context.Context) (bool, error) { return p.ctx.IndexExists(c, table, name) },
+		func() *SchemaPlan { return p.DropIndex(name, table) })
 }
 
 // AddPrimaryKey appends an ADD PRIMARY KEY statement.
@@ -200,17 +173,9 @@ func (p *SchemaPlan) AddPrimaryKey(name, table string, columns []string) *Schema
 
 // AddPrimaryKeyIfNotExists appends ADD PRIMARY KEY when the constraint is absent.
 func (p *SchemaPlan) AddPrimaryKeyIfNotExists(ctx context.Context, name, table string, columns []string) *SchemaPlan {
-	if p.ctx.dryRun {
-		return p.AddPrimaryKey(name, table, columns)
-	}
-	exists, err := p.ctx.ConstraintExists(ctx, table, name)
-	if err != nil || exists {
-		if err != nil {
-			p.err = err
-		}
-		return p
-	}
-	return p.AddPrimaryKey(name, table, columns)
+	return p.existenceGuard(ctx, false,
+		func(c context.Context) (bool, error) { return p.ctx.ConstraintExists(c, table, name) },
+		func() *SchemaPlan { return p.AddPrimaryKey(name, table, columns) })
 }
 
 // DropPrimaryKey appends a DROP PRIMARY KEY statement.
@@ -221,17 +186,9 @@ func (p *SchemaPlan) DropPrimaryKey(name, table string) *SchemaPlan {
 
 // DropPrimaryKeyIfExists appends DROP PRIMARY KEY when the constraint exists.
 func (p *SchemaPlan) DropPrimaryKeyIfExists(ctx context.Context, name, table string) *SchemaPlan {
-	if p.ctx.dryRun {
-		return p.DropPrimaryKey(name, table)
-	}
-	exists, err := p.ctx.ConstraintExists(ctx, table, name)
-	if err != nil || !exists {
-		if err != nil {
-			p.err = err
-		}
-		return p
-	}
-	return p.DropPrimaryKey(name, table)
+	return p.existenceGuard(ctx, true,
+		func(c context.Context) (bool, error) { return p.ctx.ConstraintExists(c, table, name) },
+		func() *SchemaPlan { return p.DropPrimaryKey(name, table) })
 }
 
 // AddForeignKey appends an ADD FOREIGN KEY statement.
@@ -242,17 +199,11 @@ func (p *SchemaPlan) AddForeignKey(name, table string, columns []string, refTabl
 
 // AddForeignKeyIfNotExists appends ADD FOREIGN KEY when the constraint is absent.
 func (p *SchemaPlan) AddForeignKeyIfNotExists(ctx context.Context, name, table string, columns []string, refTable string, refColumns []string, onDelete ForeignKeyAction, onUpdate ForeignKeyAction) *SchemaPlan {
-	if p.ctx.dryRun {
-		return p.AddForeignKey(name, table, columns, refTable, refColumns, onDelete, onUpdate)
-	}
-	exists, err := p.ctx.ForeignKeyExists(ctx, table, name)
-	if err != nil || exists {
-		if err != nil {
-			p.err = err
-		}
-		return p
-	}
-	return p.AddForeignKey(name, table, columns, refTable, refColumns, onDelete, onUpdate)
+	return p.existenceGuard(ctx, false,
+		func(c context.Context) (bool, error) { return p.ctx.ForeignKeyExists(c, table, name) },
+		func() *SchemaPlan {
+			return p.AddForeignKey(name, table, columns, refTable, refColumns, onDelete, onUpdate)
+		})
 }
 
 // DropForeignKey appends a DROP FOREIGN KEY statement.
@@ -263,17 +214,9 @@ func (p *SchemaPlan) DropForeignKey(name, table string) *SchemaPlan {
 
 // DropForeignKeyIfExists appends DROP FOREIGN KEY when the constraint exists.
 func (p *SchemaPlan) DropForeignKeyIfExists(ctx context.Context, name, table string) *SchemaPlan {
-	if p.ctx.dryRun {
-		return p.DropForeignKey(name, table)
-	}
-	exists, err := p.ctx.ForeignKeyExists(ctx, table, name)
-	if err != nil || !exists {
-		if err != nil {
-			p.err = err
-		}
-		return p
-	}
-	return p.DropForeignKey(name, table)
+	return p.existenceGuard(ctx, true,
+		func(c context.Context) (bool, error) { return p.ctx.ForeignKeyExists(c, table, name) },
+		func() *SchemaPlan { return p.DropForeignKey(name, table) })
 }
 
 // AddCommentOnColumn appends a column comment statement.

@@ -226,3 +226,104 @@ func TestSchemaPlanDropIfExistsDryRunEmitsStrictDrop(t *testing.T) {
 		t.Fatalf("dry run executed %#v", queries)
 	}
 }
+
+// The shared existence guard behind every *IfExists variant, exercised
+// directly: dry-run emits without probing, the probe result decides emission
+// per polarity, and probe failures are recorded on the plan.
+func TestSchemaPlanExistenceGuard(t *testing.T) {
+	probeFailure := errors.New("probe failed")
+
+	cases := []struct {
+		name        string
+		dryRun      bool
+		emitOnExist bool
+		exists      bool
+		probeErr    error
+		wantProbe   bool
+		wantEmit    bool
+		wantErr     error
+	}{
+		{
+			name:     "dry run emits without probing",
+			dryRun:   true,
+			wantEmit: true,
+		},
+		{
+			name:        "drop polarity emits when object exists",
+			emitOnExist: true,
+			exists:      true,
+			wantProbe:   true,
+			wantEmit:    true,
+		},
+		{
+			name:        "drop polarity skips when object is absent",
+			emitOnExist: true,
+			exists:      false,
+			wantProbe:   true,
+		},
+		{
+			name:      "create polarity emits when object is absent",
+			exists:    false,
+			wantProbe: true,
+			wantEmit:  true,
+		},
+		{
+			name:      "create polarity skips when object exists",
+			exists:    true,
+			wantProbe: true,
+		},
+		{
+			name:      "probe error recorded on plan",
+			probeErr:  probeFailure,
+			wantProbe: true,
+			wantErr:   probeFailure,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			m := NewMigrationContext(nil, SQLiteDialect{}, WithDryRun(tc.dryRun))
+			plan := m.Schema()
+			probeCalls := 0
+			emitCalls := 0
+
+			got := plan.existenceGuard(context.Background(), tc.emitOnExist,
+				func(context.Context) (bool, error) {
+					probeCalls++
+					return tc.exists, tc.probeErr
+				},
+				func() *SchemaPlan {
+					emitCalls++
+					return plan.Raw("GUARDED")
+				})
+
+			if got != plan {
+				t.Fatal("existenceGuard returned a different plan instance")
+			}
+			wantProbeCalls := 0
+			if tc.wantProbe {
+				wantProbeCalls = 1
+			}
+			if probeCalls != wantProbeCalls {
+				t.Fatalf("probe calls = %d, want %d", probeCalls, wantProbeCalls)
+			}
+			wantEmitCalls := 0
+			if tc.wantEmit {
+				wantEmitCalls = 1
+			}
+			if emitCalls != wantEmitCalls {
+				t.Fatalf("emit calls = %d, want %d", emitCalls, wantEmitCalls)
+			}
+			if got.err != tc.wantErr {
+				t.Fatalf("plan error = %v, want %v", got.err, tc.wantErr)
+			}
+			stmts := got.Statements()
+			if tc.wantEmit {
+				if len(stmts) != 1 || stmts[0].Query != "GUARDED" {
+					t.Fatalf("statements = %#v, want one GUARDED statement", stmts)
+				}
+			} else if len(stmts) != 0 {
+				t.Fatalf("statements = %#v, want none", stmts)
+			}
+		})
+	}
+}
