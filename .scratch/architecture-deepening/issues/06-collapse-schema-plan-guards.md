@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 - [ ] guard 逻辑单点实现（一个内部 helper 承载 dryRun 判断 + 探针 + 跳过 + 记错）
 - [ ] 十个 If-variant 复用该 helper，重复块消失
