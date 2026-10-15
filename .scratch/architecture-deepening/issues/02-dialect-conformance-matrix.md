@@ -4,7 +4,7 @@
 
 **Blocked by:** 01（新 interface 方法需进入矩阵）
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 - [ ] 存在共享矩阵测试文件，新增一个用例即可同时覆盖四个 adapter（含 01 引入的历史表方法）
 - [ ] MySQL 的 DDL 生成覆盖度不再只有一个单测，与 postgres/sqlserver 对齐
