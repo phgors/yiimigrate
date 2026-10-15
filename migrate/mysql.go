@@ -214,9 +214,10 @@ func (d MySQLDialect) CreateMigrationTableSQL(table string) (string, error) {
 	return d.buildCreateMigrationTableSQL(d, table)
 }
 
-// DropTable builds DROP TABLE SQL.
+// DropTable builds a strict DROP TABLE; idempotent drops belong to the plan
+// layer's existence probes.
 func (d MySQLDialect) DropTable(table string) (string, error) {
-	return d.buildDropTable(d, table, false)
+	return d.buildDropTable(d, table)
 }
 
 // RenameTable builds RENAME TABLE SQL.
@@ -258,7 +259,8 @@ func (d MySQLDialect) CreateIndex(name, table string, columns []string, unique b
 	return d.buildCreateIndex(d, name, table, columns, unique)
 }
 
-// DropIndex builds DROP INDEX SQL.
+// DropIndex builds a strict DROP INDEX that keeps the table clause, because
+// MySQL requires ON table to locate the index.
 func (d MySQLDialect) DropIndex(name, table string) (string, error) {
 	return d.buildDropIndex(d, name, table)
 }

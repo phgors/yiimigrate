@@ -103,3 +103,60 @@ func TestSQLServerReleaseLockSQL(t *testing.T) {
 		t.Fatalf("ReleaseLockSQL query is empty")
 	}
 }
+
+// Statements that embed object names inside string literals (sp_rename,
+// extended properties, the OBJECT_ID probe) must double every single quote,
+// so names containing ' still produce one legal SQL string literal.
+func TestSQLServerIdentifierLiteralsEscapeSingleQuotes(t *testing.T) {
+	d := SQLServerDialect{}
+	cases := []struct {
+		name  string
+		build func() (string, error)
+		want  string
+	}{
+		{
+			name:  "rename table",
+			build: func() (string, error) { return d.RenameTable("weird'table", "new'name") },
+			want:  "EXEC sp_rename 'weird''table', 'new''name'",
+		},
+		{
+			name:  "rename column",
+			build: func() (string, error) { return d.RenameColumn("weird'table", "old'name", "new'name") },
+			want:  "EXEC sp_rename 'weird''table.old''name', 'new''name', 'COLUMN'",
+		},
+		{
+			name:  "add comment on column",
+			build: func() (string, error) { return d.AddCommentOnColumn("weird'table", "name's", "it's a comment") },
+			want:  "EXEC sp_addextendedproperty 'MS_Description', 'it''s a comment', 'SCHEMA', SCHEMA_NAME(), 'TABLE', 'weird''table', 'COLUMN', 'name''s'",
+		},
+		{
+			name:  "drop comment from column",
+			build: func() (string, error) { return d.DropCommentFromColumn("weird'table", "name's") },
+			want:  "EXEC sp_dropextendedproperty 'MS_Description', 'SCHEMA', SCHEMA_NAME(), 'TABLE', 'weird''table', 'COLUMN', 'name''s'",
+		},
+		{
+			name:  "add comment on table",
+			build: func() (string, error) { return d.AddCommentOnTable("weird'table", "it's a table") },
+			want:  "EXEC sp_addextendedproperty 'MS_Description', 'it''s a table', 'SCHEMA', SCHEMA_NAME(), 'TABLE', 'weird''table'",
+		},
+		{
+			name:  "drop comment from table",
+			build: func() (string, error) { return d.DropCommentFromTable("weird'table") },
+			want:  "EXEC sp_dropextendedproperty 'MS_Description', 'SCHEMA', SCHEMA_NAME(), 'TABLE', 'weird''table'",
+		},
+		{
+			name:  "create migration table",
+			build: func() (string, error) { return d.CreateMigrationTableSQL("weird'table") },
+			want:  "IF OBJECT_ID(N'[weird''table]', 'U') IS NULL BEGIN CREATE TABLE [weird'table] ([version] varchar(180) NOT NULL PRIMARY KEY, [apply_time] int NOT NULL) END",
+		},
+	}
+	for _, tc := range cases {
+		got, err := tc.build()
+		if err != nil {
+			t.Fatalf("%s returned error: %v", tc.name, err)
+		}
+		if got != tc.want {
+			t.Fatalf("%s = %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}

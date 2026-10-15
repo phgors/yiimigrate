@@ -229,9 +229,10 @@ func (d PostgreSQLDialect) CreateMigrationTableSQL(table string) (string, error)
 	return d.buildCreateMigrationTableSQL(d, table)
 }
 
-// DropTable builds DROP TABLE IF EXISTS SQL.
+// DropTable builds a strict DROP TABLE; idempotent drops belong to the plan
+// layer's existence probes.
 func (d PostgreSQLDialect) DropTable(table string) (string, error) {
-	return d.buildDropTable(d, table, true)
+	return d.buildDropTable(d, table)
 }
 
 // RenameTable builds ALTER TABLE RENAME SQL.
@@ -273,9 +274,11 @@ func (d PostgreSQLDialect) CreateIndex(name, table string, columns []string, uni
 	return d.buildCreateIndex(d, name, table, columns, unique)
 }
 
-// DropIndex builds DROP INDEX IF EXISTS SQL.
+// DropIndex builds a strict DROP INDEX; the table argument is unused because
+// PostgreSQL drops an index by name alone. Idempotent drops belong to the
+// plan layer's existence probes.
 func (d PostgreSQLDialect) DropIndex(name, table string) (string, error) {
-	return "DROP INDEX IF EXISTS " + d.QuoteTable(name), nil
+	return "DROP INDEX " + d.QuoteTable(name), nil
 }
 
 // AddPrimaryKey builds ADD PRIMARY KEY SQL.

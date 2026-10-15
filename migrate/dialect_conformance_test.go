@@ -424,9 +424,12 @@ func TestDialectConformanceSchema(t *testing.T) {
 			),
 		},
 		{
+			// Every adapter drops strictly: no IF EXISTS, so a missing object
+			// surfaces as the database's own error. Idempotent drops are the
+			// plan layer's job (DropTableIfExists probes first).
 			name: "drop table",
 			op:   func(d Dialect) (string, error) { return d.DropTable("article") },
-			want: wantAll("DROP TABLE `article`", `DROP TABLE "article"`, `DROP TABLE IF EXISTS "article"`, "DROP TABLE IF EXISTS [article]"),
+			want: wantAll("DROP TABLE `article`", `DROP TABLE "article"`, `DROP TABLE "article"`, "DROP TABLE [article]"),
 		},
 		{
 			name: "rename table",
@@ -570,12 +573,17 @@ func TestDialectConformanceSchema(t *testing.T) {
 			),
 		},
 		{
+			// Every adapter drops strictly: no IF EXISTS, a missing index is
+			// the database's own error, idempotency lives in the plan layer.
+			// The table argument is used only where the engine's DROP INDEX
+			// syntax needs it: MySQL and SQL Server emit "ON table", while
+			// PostgreSQL and SQLite drop the index by name alone.
 			name: "drop index",
 			op:   func(d Dialect) (string, error) { return d.DropIndex("idx_article_title", "article") },
 			want: wantAll(
 				"DROP INDEX `idx_article_title` ON `article`",
 				`DROP INDEX "idx_article_title"`,
-				`DROP INDEX IF EXISTS "idx_article_title"`,
+				`DROP INDEX "idx_article_title"`,
 				"DROP INDEX [idx_article_title] ON [article]",
 			),
 		},

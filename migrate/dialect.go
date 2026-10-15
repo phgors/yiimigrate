@@ -104,7 +104,7 @@ func sqlLiteral(v any) string {
 	case Expression:
 		return string(value)
 	case string:
-		return "'" + strings.ReplaceAll(value, "'", "''") + "'"
+		return "'" + escapeSQLString(value) + "'"
 	case bool:
 		if value {
 			return "TRUE"
@@ -113,6 +113,12 @@ func sqlLiteral(v any) string {
 	default:
 		return fmt.Sprint(value)
 	}
+}
+
+// escapeSQLString doubles every single quote so the value can be embedded
+// inside a SQL string literal without terminating it early.
+func escapeSQLString(value string) string {
+	return strings.ReplaceAll(value, "'", "''")
 }
 
 func sizedType(name string, size []int, defaults ...int) string {

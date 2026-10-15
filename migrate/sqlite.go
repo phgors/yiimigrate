@@ -161,9 +161,10 @@ func (d SQLiteDialect) CreateMigrationTableSQL(table string) (string, error) {
 	return d.buildCreateMigrationTableSQL(d, table)
 }
 
-// DropTable builds DROP TABLE SQL.
+// DropTable builds a strict DROP TABLE; idempotent drops belong to the plan
+// layer's existence probes.
 func (d SQLiteDialect) DropTable(table string) (string, error) {
-	return d.buildDropTable(d, table, false)
+	return d.buildDropTable(d, table)
 }
 
 // RenameTable builds ALTER TABLE RENAME SQL.
@@ -201,7 +202,9 @@ func (d SQLiteDialect) CreateIndex(name, table string, columns []string, unique 
 	return d.buildCreateIndex(d, name, table, columns, unique)
 }
 
-// DropIndex builds DROP INDEX SQL.
+// DropIndex builds a strict DROP INDEX; the table argument is unused because
+// SQLite drops an index by name alone. Idempotent drops belong to the plan
+// layer's existence probes.
 func (d SQLiteDialect) DropIndex(name, table string) (string, error) {
 	return "DROP INDEX " + d.QuoteTable(name), nil
 }

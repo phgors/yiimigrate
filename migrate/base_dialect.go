@@ -64,14 +64,11 @@ func (baseDialect) buildCreateMigrationTableSQL(d Dialect, table string) (string
 	), nil
 }
 
-// buildDropTable renders DROP TABLE; ifExists selects the IF EXISTS form for
-// engines that support it.
-func (baseDialect) buildDropTable(d Dialect, table string, ifExists bool) (string, error) {
-	query := "DROP TABLE "
-	if ifExists {
-		query += "IF EXISTS "
-	}
-	return query + d.QuoteTable(table), nil
+// buildDropTable renders a strict DROP TABLE: a missing object is left to the
+// database to report as its natural error. Idempotent drops belong to the
+// plan layer's existence probes, so no adapter emits IF EXISTS from here.
+func (baseDialect) buildDropTable(d Dialect, table string) (string, error) {
+	return "DROP TABLE " + d.QuoteTable(table), nil
 }
 
 // buildRenameTable renders ALTER TABLE ... RENAME TO.

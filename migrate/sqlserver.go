@@ -242,23 +242,26 @@ func (d SQLServerDialect) CreateTable(table string, columns *ColumnList, options
 // CreateMigrationTableSQL builds idempotent SQL that creates the migration
 // table (version varchar(180) primary key, apply_time int) when it is absent.
 // SQL Server has no CREATE TABLE IF NOT EXISTS, so existence is checked via
-// OBJECT_ID before creating the table.
+// OBJECT_ID before creating the table; the quoted name embedded in that
+// string literal has its single quotes doubled.
 func (d SQLServerDialect) CreateMigrationTableSQL(table string) (string, error) {
 	quoted := d.QuoteTable(table)
 	return fmt.Sprintf(
 		"IF OBJECT_ID(N'%s', 'U') IS NULL BEGIN CREATE TABLE %s (%s varchar(180) NOT NULL PRIMARY KEY, %s int NOT NULL) END",
-		quoted, quoted, d.QuoteColumn("version"), d.QuoteColumn("apply_time"),
+		escapeSQLString(quoted), quoted, d.QuoteColumn("version"), d.QuoteColumn("apply_time"),
 	), nil
 }
 
-// DropTable builds DROP TABLE IF EXISTS SQL.
+// DropTable builds a strict DROP TABLE; SQL Server has no IF EXISTS form, and
+// idempotent drops belong to the plan layer's existence probes anyway.
 func (d SQLServerDialect) DropTable(table string) (string, error) {
-	return d.buildDropTable(d, table, true)
+	return d.buildDropTable(d, table)
 }
 
-// RenameTable builds sp_rename SQL.
+// RenameTable builds sp_rename SQL. Object names are embedded in a string
+// literal, so single quotes are doubled.
 func (d SQLServerDialect) RenameTable(oldName, newName string) (string, error) {
-	return fmt.Sprintf("EXEC sp_rename '%s', '%s'", oldName, newName), nil
+	return fmt.Sprintf("EXEC sp_rename '%s', '%s'", escapeSQLString(oldName), escapeSQLString(newName)), nil
 }
 
 // TruncateTable builds TRUNCATE TABLE SQL.
@@ -289,9 +292,10 @@ func (d SQLServerDialect) DropColumn(table, column string) (string, error) {
 	return d.buildDropColumn(d, table, column)
 }
 
-// RenameColumn builds sp_rename SQL for a column.
+// RenameColumn builds sp_rename SQL for a column. The qualified name is
+// embedded in a string literal, so single quotes are doubled.
 func (d SQLServerDialect) RenameColumn(table, oldName, newName string) (string, error) {
-	return fmt.Sprintf("EXEC sp_rename '%s.%s', '%s', 'COLUMN'", table, oldName, newName), nil
+	return fmt.Sprintf("EXEC sp_rename '%s.%s', '%s', 'COLUMN'", escapeSQLString(table), escapeSQLString(oldName), escapeSQLString(newName)), nil
 }
 
 // CreateIndex builds CREATE INDEX SQL.
@@ -325,23 +329,27 @@ func (d SQLServerDialect) DropForeignKey(name, table string) (string, error) {
 }
 
 // AddCommentOnColumn builds sp_addextendedproperty SQL for a column comment.
+// Object names are embedded in string literals, so single quotes are doubled.
 func (d SQLServerDialect) AddCommentOnColumn(table, column, comment string) (string, error) {
-	return fmt.Sprintf("EXEC sp_addextendedproperty 'MS_Description', %s, 'SCHEMA', SCHEMA_NAME(), 'TABLE', '%s', 'COLUMN', '%s'", sqlLiteral(comment), table, column), nil
+	return fmt.Sprintf("EXEC sp_addextendedproperty 'MS_Description', %s, 'SCHEMA', SCHEMA_NAME(), 'TABLE', '%s', 'COLUMN', '%s'", sqlLiteral(comment), escapeSQLString(table), escapeSQLString(column)), nil
 }
 
-// DropCommentFromColumn builds sp_dropextendedproperty SQL for a column comment.
+// DropCommentFromColumn builds sp_dropextendedproperty SQL for a column
+// comment; single quotes in object names are doubled.
 func (d SQLServerDialect) DropCommentFromColumn(table, column string) (string, error) {
-	return fmt.Sprintf("EXEC sp_dropextendedproperty 'MS_Description', 'SCHEMA', SCHEMA_NAME(), 'TABLE', '%s', 'COLUMN', '%s'", table, column), nil
+	return fmt.Sprintf("EXEC sp_dropextendedproperty 'MS_Description', 'SCHEMA', SCHEMA_NAME(), 'TABLE', '%s', 'COLUMN', '%s'", escapeSQLString(table), escapeSQLString(column)), nil
 }
 
-// AddCommentOnTable builds sp_addextendedproperty SQL for a table comment.
+// AddCommentOnTable builds sp_addextendedproperty SQL for a table comment;
+// single quotes in the table name are doubled.
 func (d SQLServerDialect) AddCommentOnTable(table, comment string) (string, error) {
-	return fmt.Sprintf("EXEC sp_addextendedproperty 'MS_Description', %s, 'SCHEMA', SCHEMA_NAME(), 'TABLE', '%s'", sqlLiteral(comment), table), nil
+	return fmt.Sprintf("EXEC sp_addextendedproperty 'MS_Description', %s, 'SCHEMA', SCHEMA_NAME(), 'TABLE', '%s'", sqlLiteral(comment), escapeSQLString(table)), nil
 }
 
-// DropCommentFromTable builds sp_dropextendedproperty SQL for a table comment.
+// DropCommentFromTable builds sp_dropextendedproperty SQL for a table
+// comment; single quotes in the table name are doubled.
 func (d SQLServerDialect) DropCommentFromTable(table string) (string, error) {
-	return fmt.Sprintf("EXEC sp_dropextendedproperty 'MS_Description', 'SCHEMA', SCHEMA_NAME(), 'TABLE', '%s'", table), nil
+	return fmt.Sprintf("EXEC sp_dropextendedproperty 'MS_Description', 'SCHEMA', SCHEMA_NAME(), 'TABLE', '%s'", escapeSQLString(table)), nil
 }
 
 // Insert builds INSERT SQL.
