@@ -4,7 +4,7 @@
 
 **Blocked by:** 03（adapter 构造形状稳定后再接线）
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 - [ ] migrate 包暴露按名取 Dialect 与列出全部方言名的能力
 - [ ] CLI 不再自持 driver↔dialect 映射，从注册表取
