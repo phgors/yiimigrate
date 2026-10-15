@@ -1,124 +1,58 @@
 package migrate
 
 import (
-	"errors"
 	"reflect"
 	"testing"
 )
 
-func TestSQLiteCreateTableSQL(t *testing.T) {
-	m := NewMigrationContext(nil, SQLiteDialect{})
-	sql, err := SQLiteDialect{}.CreateTable("article", Columns().
-		Add("id", m.PrimaryKey()).
-		Add("title", m.String(128).NotNull()).
-		Add("metadata", m.Json().Null()).
-		Add("created_at", m.Timestamp(0).NotNull().DefaultExpression("CURRENT_TIMESTAMP")),
-		"",
-	)
-	if err != nil {
-		t.Fatalf("CreateTable returned error: %v", err)
-	}
+// SQLite-specific divergence only: catalog probes against sqlite_master and
+// pragma_table_info, plus the sentinel probes for named constraints that
+// SQLite cannot represent. Everything the adapters share in structure is
+// asserted by the conformance matrix in dialect_conformance_test.go.
 
-	want := `CREATE TABLE "article" ("id" INTEGER PRIMARY KEY AUTOINCREMENT, "title" VARCHAR(128) NOT NULL, "metadata" TEXT NULL, "created_at" TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`
-	if sql != want {
-		t.Fatalf("CreateTable SQL:\n got: %s\nwant: %s", sql, want)
+func TestSQLiteTableExistsSQL(t *testing.T) {
+	s := SQLiteDialect{}.TableExistsSQL("article")
+	want := `SELECT COUNT(*) FROM sqlite_master WHERE type IN ('table', 'view') AND name = ?`
+	if s.Query != want {
+		t.Fatalf("TableExistsSQL query = %q, want %q", s.Query, want)
+	}
+	if !reflect.DeepEqual(s.Args, []any{"article"}) {
+		t.Fatalf("TableExistsSQL args = %#v", s.Args)
 	}
 }
 
-func TestSQLiteMetadataAndDMLSQL(t *testing.T) {
+func TestSQLiteColumnExistsSQL(t *testing.T) {
+	s := SQLiteDialect{}.ColumnExistsSQL("article", "title")
+	want := `SELECT COUNT(*) FROM pragma_table_info(?) WHERE name = ?`
+	if s.Query != want {
+		t.Fatalf("ColumnExistsSQL query = %q, want %q", s.Query, want)
+	}
+	if !reflect.DeepEqual(s.Args, []any{"article", "title"}) {
+		t.Fatalf("ColumnExistsSQL args = %#v", s.Args)
+	}
+}
+
+func TestSQLiteIndexExistsSQL(t *testing.T) {
+	s := SQLiteDialect{}.IndexExistsSQL("article", "idx_title")
+	want := `SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND tbl_name = ? AND name = ?`
+	if s.Query != want {
+		t.Fatalf("IndexExistsSQL query = %q, want %q", s.Query, want)
+	}
+	if !reflect.DeepEqual(s.Args, []any{"article", "idx_title"}) {
+		t.Fatalf("IndexExistsSQL args = %#v", s.Args)
+	}
+}
+
+func TestSQLiteNamedConstraintProbesReportAbsent(t *testing.T) {
 	d := SQLiteDialect{}
 
-	tableSQL := d.TableExistsSQL("article")
-	if tableSQL.Query != `SELECT COUNT(*) FROM sqlite_master WHERE type IN ('table', 'view') AND name = ?` {
-		t.Fatalf("TableExistsSQL = %s", tableSQL.Query)
-	}
-	if !reflect.DeepEqual(tableSQL.Args, []any{"article"}) {
-		t.Fatalf("TableExistsSQL args = %#v", tableSQL.Args)
+	fk := d.ForeignKeyExistsSQL("article", "fk_user")
+	if fk.Query != "SELECT 0" || len(fk.Args) != 0 {
+		t.Fatalf("ForeignKeyExistsSQL = %q args %#v, want constant absent probe", fk.Query, fk.Args)
 	}
 
-	columnSQL := d.ColumnExistsSQL("article", "title")
-	if columnSQL.Query != `SELECT COUNT(*) FROM pragma_table_info(?) WHERE name = ?` {
-		t.Fatalf("ColumnExistsSQL = %s", columnSQL.Query)
-	}
-	if !reflect.DeepEqual(columnSQL.Args, []any{"article", "title"}) {
-		t.Fatalf("ColumnExistsSQL args = %#v", columnSQL.Args)
-	}
-
-	stmt, err := d.Insert("article", Row{
-		"title":      "Hello",
-		"created_at": Expr("CURRENT_TIMESTAMP"),
-	})
-	if err != nil {
-		t.Fatalf("Insert returned error: %v", err)
-	}
-	wantSQL := `INSERT INTO "article" ("created_at", "title") VALUES (CURRENT_TIMESTAMP, ?)`
-	if stmt.Query != wantSQL {
-		t.Fatalf("Insert SQL:\n got: %s\nwant: %s", stmt.Query, wantSQL)
-	}
-	if !reflect.DeepEqual(stmt.Args, []any{"Hello"}) {
-		t.Fatalf("Insert args = %#v", stmt.Args)
-	}
-}
-
-func TestSQLiteUnsupportedOperationsReturnErrors(t *testing.T) {
-	_, err := SQLiteDialect{}.AlterColumn("article", "title", NewMigrationContext(nil, SQLiteDialect{}).String(128))
-	var unsupported *UnsupportedOperationError
-	if !errors.As(err, &unsupported) {
-		t.Fatalf("AlterColumn error = %v, want UnsupportedOperationError", err)
-	}
-	if unsupported.Dialect != "sqlite" || unsupported.Operation != "ALTER COLUMN" {
-		t.Fatalf("unsupported error = %#v", unsupported)
-	}
-}
-
-func TestMySQLCreateTableSQL(t *testing.T) {
-	m := NewMigrationContext(nil, MySQLDialect{})
-	sql, err := MySQLDialect{}.CreateTable("article", Columns().
-		Add("id", m.UnsignedBigPrimaryKey()).
-		Add("title", m.String(128).NotNull()).
-		Add("metadata", m.Json().Null()),
-		"ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
-	)
-	if err != nil {
-		t.Fatalf("CreateTable returned error: %v", err)
-	}
-
-	want := "CREATE TABLE `article` (`id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, `title` VARCHAR(128) NOT NULL, `metadata` JSON NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
-	if sql != want {
-		t.Fatalf("CreateTable SQL:\n got: %s\nwant: %s", sql, want)
-	}
-}
-
-func TestMySQLCreateMigrationTableSQL(t *testing.T) {
-	got, err := MySQLDialect{}.CreateMigrationTableSQL("migration")
-	if err != nil {
-		t.Fatalf("CreateMigrationTableSQL returned error: %v", err)
-	}
-
-	want := "CREATE TABLE IF NOT EXISTS `migration` (`version` varchar(180) NOT NULL PRIMARY KEY, `apply_time` int NOT NULL)"
-	if got != want {
-		t.Fatalf("CreateMigrationTableSQL:\n got: %s\nwant: %s", got, want)
-	}
-}
-
-func TestSQLiteCreateMigrationTableSQL(t *testing.T) {
-	got, err := SQLiteDialect{}.CreateMigrationTableSQL("migration")
-	if err != nil {
-		t.Fatalf("CreateMigrationTableSQL returned error: %v", err)
-	}
-
-	want := `CREATE TABLE IF NOT EXISTS "migration" ("version" varchar(180) NOT NULL PRIMARY KEY, "apply_time" int NOT NULL)`
-	if got != want {
-		t.Fatalf("CreateMigrationTableSQL:\n got: %s\nwant: %s", got, want)
-	}
-}
-
-func TestQuoteIndexColumnLeavesExpressions(t *testing.T) {
-	d := MySQLDialect{}
-	if got := d.QuoteIndexColumn("LOWER(email)"); got != "LOWER(email)" {
-		t.Fatalf("QuoteIndexColumn expression = %s", got)
-	}
-	if got := d.QuoteIndexColumn("user_id"); got != "`user_id`" {
-		t.Fatalf("QuoteIndexColumn column = %s", got)
+	constraint := d.ConstraintExistsSQL("article", "chk_status")
+	if constraint.Query != "SELECT 0" || len(constraint.Args) != 0 {
+		t.Fatalf("ConstraintExistsSQL = %q args %#v, want constant absent probe", constraint.Query, constraint.Args)
 	}
 }
