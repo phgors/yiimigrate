@@ -4,7 +4,7 @@
 
 **Blocked by:** 02（矩阵先枚举现有映射缺口，避免翻转默认值时踩隐性依赖）
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 - [ ] 四个 adapter 对未映射类型返回同型错误，错误信息可定位（类型名 + 方言名）
 - [ ] 不再存在把类型名直接拼进 SQL 的透传路径
