@@ -78,3 +78,17 @@ if !exists {
 - Do not use unordered map iteration for CREATE TABLE column order.
 - Do not execute SQL in dry-run mode.
 - Do not quote SQL expressions like `LOWER(email)` as normal column names.
+
+## Agent skills
+
+### Issue tracker
+
+Local markdown: issues live as one file per ticket under `.scratch/<feature-slug>/issues/`. See `dev-docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five-role vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `dev-docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: root `CONTEXT.md`, ADRs in `dev-docs/adr/`. See `dev-docs/agents/domain.md`.
