@@ -4,7 +4,7 @@
 
 **Blocked by:** 02（矩阵作重构安全网）
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 - [ ] 共享语句形状在 baseDialect 单点实现，adapter 通过内嵌获得、按需覆写
 - [ ] 两两逐字重复的方法体消失（RowExists、CreateIndex、AddForeignKey、DML 委托等不再 ×4）
