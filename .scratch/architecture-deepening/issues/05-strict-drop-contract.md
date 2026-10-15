@@ -4,7 +4,7 @@
 
 **Blocked by:** 02（矩阵先固化各方言 drop 期望）
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 - [ ] mysql/sqlite/postgres 的 drop 语句不再带 IF EXISTS 后缀，四 adapter 错误模式统一为「缺对象自然报错」
 - [ ] DropIndex 对 table 参数的使用方式在矩阵中按方言显式记录且与实现一致
