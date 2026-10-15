@@ -7,6 +7,17 @@ import (
 	"github.com/phgors/yiimigrate/migrate"
 )
 
+func TestDefaultCreateDialectFollowsDBDialectEnv(t *testing.T) {
+	t.Setenv("DB_DIALECT", "")
+	if got := defaultCreateDialect(); got != "mysql" {
+		t.Fatalf("defaultCreateDialect() = %q, want mysql", got)
+	}
+	t.Setenv("DB_DIALECT", " postgres ")
+	if got := defaultCreateDialect(); got != "postgres" {
+		t.Fatalf("defaultCreateDialect() = %q, want postgres", got)
+	}
+}
+
 func TestResolveDBConfigDefaultsToMySQL(t *testing.T) {
 	config, err := resolveDBConfig("")
 	if err != nil {
@@ -82,7 +93,29 @@ func TestResolveDBConfigRejectsUnsupportedDialect(t *testing.T) {
 	if !strings.Contains(err.Error(), `unsupported DB_DIALECT "oracle"`) {
 		t.Fatalf("error = %v", err)
 	}
-	if !strings.Contains(err.Error(), "mysql, sqlite, postgres, sqlserver") {
-		t.Fatalf("error does not list supported dialects: %v", err)
+	for _, name := range migrate.DialectNames() {
+		if !strings.Contains(err.Error(), name) {
+			t.Fatalf("error does not list supported dialect %q: %v", name, err)
+		}
+	}
+}
+
+// Every dialect the migrate registry exposes must resolve to a database/sql
+// driver through the CLI, so the registry can grow without silently breaking
+// command wiring.
+func TestResolveDBConfigSupportsEveryRegisteredDialect(t *testing.T) {
+	for _, name := range migrate.DialectNames() {
+		t.Run(name, func(t *testing.T) {
+			config, err := resolveDBConfig(name)
+			if err != nil {
+				t.Fatalf("resolveDBConfig(%q) returned error: %v", name, err)
+			}
+			if config.driverName == "" {
+				t.Fatalf("resolveDBConfig(%q) returned empty driver name", name)
+			}
+			if config.dialect == nil || config.dialect.Name() != name {
+				t.Fatalf("resolveDBConfig(%q) dialect = %v, want registered %s dialect", name, config.dialect, name)
+			}
+		})
 	}
 }

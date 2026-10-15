@@ -44,11 +44,12 @@ func run(args []string) error {
 func runCreate(args []string) error {
 	fs := flag.NewFlagSet("create", flag.ContinueOnError)
 	fields := fs.String("fields", "", "comma-separated fields")
+	dialect := fs.String("dialect", defaultCreateDialect(), "target dialect for the generated template")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	if fs.NArg() != 1 {
-		return errors.New("usage: migrate create NAME [--fields=...]")
+		return errors.New("usage: migrate create NAME [--fields=...] [--dialect=...]")
 	}
 	path, err := generator.Generate(generator.Options{
 		Name:          fs.Arg(0),
@@ -56,6 +57,7 @@ func runCreate(args []string) error {
 		PackageName:   "migrations",
 		MigrateImport: "github.com/phgors/yiimigrate/migrate",
 		Fields:        *fields,
+		Dialect:       *dialect,
 	})
 	if err != nil {
 		return err
@@ -64,24 +66,49 @@ func runCreate(args []string) error {
 	return nil
 }
 
+// defaultCreateDialect resolves the dialect the create command targets:
+// DB_DIALECT when set, mysql otherwise, matching how the database commands
+// default.
+func defaultCreateDialect() string {
+	if value := strings.TrimSpace(os.Getenv("DB_DIALECT")); value != "" {
+		return value
+	}
+	return "mysql"
+}
+
 type dbConfig struct {
 	driverName string
 	dialect    migrate.Dialect
 }
 
+// driverAliases maps DB_DIALECT spellings (including the empty default) to
+// canonical database/sql driver names. The dialect itself always comes from
+// the migrate package registry, never from this table.
+var driverAliases = map[string]string{
+	"":           "mysql",
+	"mysql":      "mysql",
+	"sqlite":     "sqlite",
+	"sqlite3":    "sqlite",
+	"postgres":   "postgres",
+	"postgresql": "postgres",
+	"sqlserver":  "sqlserver",
+	"mssql":      "sqlserver",
+}
+
 func resolveDBConfig(name string) (dbConfig, error) {
-	switch strings.ToLower(strings.TrimSpace(name)) {
-	case "", "mysql":
-		return dbConfig{driverName: "mysql", dialect: migrate.MySQLDialect{}}, nil
-	case "sqlite", "sqlite3":
-		return dbConfig{driverName: "sqlite", dialect: migrate.SQLiteDialect{}}, nil
-	case "postgres", "postgresql":
-		return dbConfig{driverName: "postgres", dialect: migrate.PostgreSQLDialect{}}, nil
-	case "sqlserver", "mssql":
-		return dbConfig{driverName: "sqlserver", dialect: migrate.SQLServerDialect{}}, nil
-	default:
-		return dbConfig{}, fmt.Errorf("unsupported DB_DIALECT %q; supported values: mysql, sqlite, postgres, sqlserver", name)
+	driverName, ok := driverAliases[strings.ToLower(strings.TrimSpace(name))]
+	if !ok {
+		return dbConfig{}, unsupportedDialectError(name)
 	}
+	dialect, ok := migrate.DialectByName(driverName)
+	if !ok {
+		return dbConfig{}, unsupportedDialectError(name)
+	}
+	return dbConfig{driverName: driverName, dialect: dialect}, nil
+}
+
+func unsupportedDialectError(name string) error {
+	return fmt.Errorf("unsupported DB_DIALECT %q; supported values: %s", name, strings.Join(migrate.DialectNames(), ", "))
 }
 
 func runDBCommand(command string, args []string) error {

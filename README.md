@@ -175,6 +175,7 @@ go run ./cmd/migrate mark VERSION
 go run ./cmd/migrate to VERSION
 go run ./cmd/migrate create NAME
 go run ./cmd/migrate create NAME --fields="title:string(128):notNull,body:longText"
+go run ./cmd/migrate create NAME --dialect=postgres --fields="title:string(128):notNull"
 ```
 
 命令说明：
@@ -188,7 +189,7 @@ go run ./cmd/migrate create NAME --fields="title:string(128):notNull,body:longTe
 | `new [n]` | 显示待执行迁移。默认显示 10 个 |
 | `mark VERSION` | 只修改迁移记录，不执行迁移代码 |
 | `to VERSION` | 迁移到指定版本；`VERSION` 为 `0` 时回滚全部 |
-| `create NAME` | 生成迁移文件 |
+| `create NAME` | 生成迁移文件；`--dialect` 指定目标方言（默认取 `DB_DIALECT`，未设置时为 `mysql`） |
 
 ## 生成器
 
@@ -229,6 +230,25 @@ name:type[:modifier[:modifier...]]
 | `defaultExpression(CURRENT_TIMESTAMP)` | `.DefaultExpression("CURRENT_TIMESTAMP")` |
 
 如果字段未指定 `null` 或 `notNull`，生成器默认追加 `.Null()`。
+
+### 按方言生成模板
+
+`create` 按 `--dialect`（或 `DB_DIALECT`，未设置时默认 `mysql`）生成对应方言的模板：
+
+| 方言 | 隐式 id 主键 | 表选项 |
+| --- | --- | --- |
+| `mysql` | `m.UnsignedBigPrimaryKey()` | `ENGINE=InnoDB DEFAULT CHARSET=utf8mb4` |
+| `sqlite` | `m.PrimaryKey()` | 无 |
+| `postgres` | `m.BigPrimaryKey()`（`BIGSERIAL`） | 无 |
+| `sqlserver` | `m.BigPrimaryKey()`（`BIGINT IDENTITY`） | 无 |
+
+```bash
+go run ./cmd/migrate create create_article_table \
+  --dialect=postgres \
+  --fields="title:string(128):notNull,content:longText"
+```
+
+方言名来自 `migrate` 包的方言注册表（`migrate.DialectByName` / `migrate.DialectNames`），CLI 与生成器共用同一入口。
 
 ## ColumnBuilder
 

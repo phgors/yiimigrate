@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 	"unicode"
+
+	"github.com/phgors/yiimigrate/migrate"
 )
 
 // Options controls migration file generation.
@@ -21,6 +23,10 @@ type Options struct {
 	MigrateImport string
 	Now           func() time.Time
 	Fields        string
+	// Dialect names the target dialect (mysql, sqlite, postgres, sqlserver)
+	// through the migrate package registry; it shapes the primary key and
+	// table options emitted in the template. Empty defaults to mysql.
+	Dialect string
 }
 
 // Field describes one parsed --fields column.
@@ -79,11 +85,38 @@ func (f Field) ColumnCode() string {
 	return "Add(" + strconv.Quote(f.Name) + ", " + builder + ")"
 }
 
-// Generate writes a migration file and refuses to overwrite existing files.
-func Generate(options Options) (string, error) {
-	if options.Name == "" {
-		return "", errors.New("migration name is required")
+// dialectProfile holds the template fragments that genuinely differ between
+// dialects: the primary-key builder call emitted for the implicit id column
+// and the CREATE TABLE options argument. Only MySQL has a default options
+// string; sqlite and sqlserver reject table options outright and postgres has
+// no meaningful cross-dialect default.
+type dialectProfile struct {
+	primaryKey string
+	options    string
+}
+
+// dialectProfiles keeps dialect-specific template knowledge next to the
+// dialect name reported by the registry, so the shared template below stays
+// free of MySQL-specific fragments.
+var dialectProfiles = map[string]dialectProfile{
+	"mysql":     {primaryKey: "m.UnsignedBigPrimaryKey()", options: `"ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"`},
+	"sqlite":    {primaryKey: "m.PrimaryKey()", options: `""`},
+	"postgres":  {primaryKey: "m.BigPrimaryKey()", options: `""`},
+	"sqlserver": {primaryKey: "m.BigPrimaryKey()", options: `""`},
+}
+
+// profileForDialect returns the template profile for dialect. Registered
+// dialects without an explicit profile fall back to a portable template:
+// plain auto-increment primary key and no table options.
+func profileForDialect(dialect migrate.Dialect) dialectProfile {
+	if profile, ok := dialectProfiles[dialect.Name()]; ok {
+		return profile
 	}
+	return dialectProfile{primaryKey: "m.PrimaryKey()", options: `""`}
+}
+
+// normalizeOptions fills in the default values for optional fields.
+func normalizeOptions(options Options) Options {
 	if options.Dir == "" {
 		options.Dir = "migrations"
 	}
@@ -96,6 +129,18 @@ func Generate(options Options) (string, error) {
 	if options.Now == nil {
 		options.Now = time.Now
 	}
+	if strings.TrimSpace(options.Dialect) == "" {
+		options.Dialect = "mysql"
+	}
+	return options
+}
+
+// Generate writes a migration file and refuses to overwrite existing files.
+func Generate(options Options) (string, error) {
+	if options.Name == "" {
+		return "", errors.New("migration name is required")
+	}
+	options = normalizeOptions(options)
 
 	version := "m" + options.Now().Format("20060102_150405") + "_" + snakeName(options.Name)
 	path := filepath.Join(options.Dir, version+".go")
@@ -119,6 +164,12 @@ func Generate(options Options) (string, error) {
 
 // BuildContent returns formatted Go source for a migration.
 func BuildContent(options Options, version string) ([]byte, error) {
+	options = normalizeOptions(options)
+	dialect, ok := migrate.DialectByName(options.Dialect)
+	if !ok {
+		return nil, fmt.Errorf("unknown dialect %q; supported values: %s", options.Dialect, strings.Join(migrate.DialectNames(), ", "))
+	}
+	profile := profileForDialect(dialect)
 	fields, err := ParseFields(options.Fields)
 	if err != nil {
 		return nil, err
@@ -135,7 +186,7 @@ func BuildContent(options Options, version string) ([]byte, error) {
 	} else {
 		table := tableNameFromMigration(options.Name)
 		fmt.Fprintf(&buf, "\treturn m.Schema().\n\t\tCreateTable(%q, migrate.Columns().\n", table)
-		fmt.Fprintf(&buf, "\t\t\tAdd(\"id\", m.UnsignedBigPrimaryKey()).\n")
+		fmt.Fprintf(&buf, "\t\t\tAdd(\"id\", %s).\n", profile.primaryKey)
 		for i, field := range fields {
 			suffix := "."
 			if i == len(fields)-1 {
@@ -143,7 +194,7 @@ func BuildContent(options Options, version string) ([]byte, error) {
 			}
 			fmt.Fprintf(&buf, "\t\t\t%s%s\n", field.ColumnCode(), suffix)
 		}
-		fmt.Fprintf(&buf, "\t\t\t\"ENGINE=InnoDB DEFAULT CHARSET=utf8mb4\",\n\t\t).\n\t\tExec(ctx)\n")
+		fmt.Fprintf(&buf, "\t\t\t%s,\n\t\t).\n\t\tExec(ctx)\n", profile.options)
 	}
 	fmt.Fprintf(&buf, "}\n\n")
 	fmt.Fprintf(&buf, "func (%s) Down(ctx context.Context, m *migrate.MigrationContext) error {\n", typeName)
