@@ -135,55 +135,33 @@ func (d SQLiteDialect) ConstraintExistsSQL(table, name string) SQLStatement {
 
 // BuildRowExistsSQL returns SQL for checking if a row exists.
 func (d SQLiteDialect) BuildRowExistsSQL(table string, condition string) string {
-	query := "SELECT EXISTS(SELECT 1 FROM " + d.QuoteTable(table)
-	if strings.TrimSpace(condition) != "" {
-		query += " WHERE " + condition
-	}
-	return query + ")"
+	return d.buildRowExistsSQL(d, table, condition)
 }
 
 // BuildCountRowsSQL returns SQL for counting rows.
 func (d SQLiteDialect) BuildCountRowsSQL(table string, condition string) string {
-	query := "SELECT COUNT(*) FROM " + d.QuoteTable(table)
-	if strings.TrimSpace(condition) != "" {
-		query += " WHERE " + condition
-	}
-	return query
+	return d.buildCountRowsSQL(d, table, condition)
 }
 
-// CreateTable builds CREATE TABLE SQL.
+// CreateTable builds CREATE TABLE SQL; SQLite cannot take table options.
 func (d SQLiteDialect) CreateTable(table string, columns *ColumnList, options string) (string, error) {
-	if strings.TrimSpace(options) != "" {
-		return "", unsupported(d.Name(), "TABLE OPTIONS")
-	}
-	defs := make([]string, 0, len(columns.Items()))
-	for _, item := range columns.Items() {
-		columnSQL, err := d.BuildColumn(item.Column)
-		if err != nil {
-			return "", err
-		}
-		defs = append(defs, d.QuoteColumn(item.Name)+" "+columnSQL)
-	}
-	return fmt.Sprintf("CREATE TABLE %s (%s)", d.QuoteTable(table), strings.Join(defs, ", ")), nil
+	return d.buildCreateTable(d, table, columns, options, false)
 }
 
 // CreateMigrationTableSQL builds idempotent SQL that creates the migration
 // table (version varchar(180) primary key, apply_time int) when it is absent.
 func (d SQLiteDialect) CreateMigrationTableSQL(table string) (string, error) {
-	return fmt.Sprintf(
-		"CREATE TABLE IF NOT EXISTS %s (%s varchar(180) NOT NULL PRIMARY KEY, %s int NOT NULL)",
-		d.QuoteTable(table), d.QuoteColumn("version"), d.QuoteColumn("apply_time"),
-	), nil
+	return d.buildCreateMigrationTableSQL(d, table)
 }
 
 // DropTable builds DROP TABLE SQL.
 func (d SQLiteDialect) DropTable(table string) (string, error) {
-	return "DROP TABLE " + d.QuoteTable(table), nil
+	return d.buildDropTable(d, table, false)
 }
 
 // RenameTable builds ALTER TABLE RENAME SQL.
 func (d SQLiteDialect) RenameTable(oldName, newName string) (string, error) {
-	return fmt.Sprintf("ALTER TABLE %s RENAME TO %s", d.QuoteTable(oldName), d.QuoteTable(newName)), nil
+	return d.buildRenameTable(d, oldName, newName)
 }
 
 // TruncateTable returns an unsupported-operation error.
@@ -193,11 +171,7 @@ func (d SQLiteDialect) TruncateTable(table string) (string, error) {
 
 // AddColumn builds ADD COLUMN SQL.
 func (d SQLiteDialect) AddColumn(table, column string, builder *ColumnBuilder) (string, error) {
-	columnSQL, err := d.BuildColumn(builder)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", d.QuoteTable(table), d.QuoteColumn(column), columnSQL), nil
+	return d.buildAddColumn(d, table, column, builder)
 }
 
 // AlterColumn returns an unsupported-operation error.
@@ -217,11 +191,7 @@ func (d SQLiteDialect) RenameColumn(table, oldName, newName string) (string, err
 
 // CreateIndex builds CREATE INDEX SQL.
 func (d SQLiteDialect) CreateIndex(name, table string, columns []string, unique bool) (string, error) {
-	prefix := "CREATE INDEX"
-	if unique {
-		prefix = "CREATE UNIQUE INDEX"
-	}
-	return fmt.Sprintf("%s %s ON %s (%s)", prefix, d.QuoteTable(name), d.QuoteTable(table), columnList(d, columns)), nil
+	return d.buildCreateIndex(d, name, table, columns, unique)
 }
 
 // DropIndex builds DROP INDEX SQL.

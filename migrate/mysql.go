@@ -188,47 +188,28 @@ func (d MySQLDialect) ConstraintExistsSQL(table, name string) SQLStatement {
 
 // BuildRowExistsSQL returns SQL for checking if a row exists.
 func (d MySQLDialect) BuildRowExistsSQL(table string, condition string) string {
-	query := "SELECT EXISTS(SELECT 1 FROM " + d.QuoteTable(table)
-	if strings.TrimSpace(condition) != "" {
-		query += " WHERE " + condition
-	}
-	return query + ")"
+	return d.buildRowExistsSQL(d, table, condition)
 }
 
 // BuildCountRowsSQL returns SQL for counting rows.
 func (d MySQLDialect) BuildCountRowsSQL(table string, condition string) string {
-	query := "SELECT COUNT(*) FROM " + d.QuoteTable(table)
-	if strings.TrimSpace(condition) != "" {
-		query += " WHERE " + condition
-	}
-	return query
+	return d.buildCountRowsSQL(d, table, condition)
 }
 
-// CreateTable builds CREATE TABLE SQL.
+// CreateTable builds CREATE TABLE SQL with table options.
 func (d MySQLDialect) CreateTable(table string, columns *ColumnList, options string) (string, error) {
-	defs := make([]string, 0, len(columns.Items()))
-	for _, item := range columns.Items() {
-		columnSQL, err := d.BuildColumn(item.Column)
-		if err != nil {
-			return "", err
-		}
-		defs = append(defs, d.QuoteColumn(item.Name)+" "+columnSQL)
-	}
-	return fmt.Sprintf("CREATE TABLE %s (%s)%s", d.QuoteTable(table), strings.Join(defs, ", "), joinOptions(options)), nil
+	return d.buildCreateTable(d, table, columns, options, true)
 }
 
 // CreateMigrationTableSQL builds idempotent SQL that creates the migration
 // table (version varchar(180) primary key, apply_time int) when it is absent.
 func (d MySQLDialect) CreateMigrationTableSQL(table string) (string, error) {
-	return fmt.Sprintf(
-		"CREATE TABLE IF NOT EXISTS %s (%s varchar(180) NOT NULL PRIMARY KEY, %s int NOT NULL)",
-		d.QuoteTable(table), d.QuoteColumn("version"), d.QuoteColumn("apply_time"),
-	), nil
+	return d.buildCreateMigrationTableSQL(d, table)
 }
 
 // DropTable builds DROP TABLE SQL.
 func (d MySQLDialect) DropTable(table string) (string, error) {
-	return "DROP TABLE " + d.QuoteTable(table), nil
+	return d.buildDropTable(d, table, false)
 }
 
 // RenameTable builds RENAME TABLE SQL.
@@ -238,16 +219,12 @@ func (d MySQLDialect) RenameTable(oldName, newName string) (string, error) {
 
 // TruncateTable builds TRUNCATE TABLE SQL.
 func (d MySQLDialect) TruncateTable(table string) (string, error) {
-	return "TRUNCATE TABLE " + d.QuoteTable(table), nil
+	return d.buildTruncateTable(d, table)
 }
 
 // AddColumn builds ADD COLUMN SQL.
 func (d MySQLDialect) AddColumn(table, column string, builder *ColumnBuilder) (string, error) {
-	columnSQL, err := d.BuildColumn(builder)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", d.QuoteTable(table), d.QuoteColumn(column), columnSQL), nil
+	return d.buildAddColumn(d, table, column, builder)
 }
 
 // AlterColumn builds ALTER COLUMN SQL.
@@ -261,31 +238,27 @@ func (d MySQLDialect) AlterColumn(table, column string, builder *ColumnBuilder) 
 
 // DropColumn builds DROP COLUMN SQL.
 func (d MySQLDialect) DropColumn(table, column string) (string, error) {
-	return fmt.Sprintf("ALTER TABLE %s DROP COLUMN %s", d.QuoteTable(table), d.QuoteColumn(column)), nil
+	return d.buildDropColumn(d, table, column)
 }
 
 // RenameColumn builds RENAME COLUMN SQL.
 func (d MySQLDialect) RenameColumn(table, oldName, newName string) (string, error) {
-	return fmt.Sprintf("ALTER TABLE %s RENAME COLUMN %s TO %s", d.QuoteTable(table), d.QuoteColumn(oldName), d.QuoteColumn(newName)), nil
+	return d.buildRenameColumn(d, table, oldName, newName)
 }
 
 // CreateIndex builds CREATE INDEX SQL.
 func (d MySQLDialect) CreateIndex(name, table string, columns []string, unique bool) (string, error) {
-	prefix := "CREATE INDEX"
-	if unique {
-		prefix = "CREATE UNIQUE INDEX"
-	}
-	return fmt.Sprintf("%s %s ON %s (%s)", prefix, d.QuoteTable(name), d.QuoteTable(table), columnList(d, columns)), nil
+	return d.buildCreateIndex(d, name, table, columns, unique)
 }
 
 // DropIndex builds DROP INDEX SQL.
 func (d MySQLDialect) DropIndex(name, table string) (string, error) {
-	return fmt.Sprintf("DROP INDEX %s ON %s", d.QuoteTable(name), d.QuoteTable(table)), nil
+	return d.buildDropIndex(d, name, table)
 }
 
 // AddPrimaryKey builds ADD PRIMARY KEY SQL.
 func (d MySQLDialect) AddPrimaryKey(name, table string, columns []string) (string, error) {
-	return fmt.Sprintf("ALTER TABLE %s ADD CONSTRAINT %s PRIMARY KEY (%s)", d.QuoteTable(table), d.QuoteTable(name), columnList(d, columns)), nil
+	return d.buildAddPrimaryKey(d, name, table, columns)
 }
 
 // DropPrimaryKey builds DROP PRIMARY KEY SQL.
@@ -295,14 +268,7 @@ func (d MySQLDialect) DropPrimaryKey(name, table string) (string, error) {
 
 // AddForeignKey builds ADD FOREIGN KEY SQL.
 func (d MySQLDialect) AddForeignKey(name, table string, columns []string, refTable string, refColumns []string, onDelete ForeignKeyAction, onUpdate ForeignKeyAction) (string, error) {
-	query := fmt.Sprintf("ALTER TABLE %s ADD CONSTRAINT %s FOREIGN KEY (%s) REFERENCES %s (%s)", d.QuoteTable(table), d.QuoteTable(name), columnList(d, columns), d.QuoteTable(refTable), columnList(d, refColumns))
-	if onDelete != "" {
-		query += " ON DELETE " + string(onDelete)
-	}
-	if onUpdate != "" {
-		query += " ON UPDATE " + string(onUpdate)
-	}
-	return query, nil
+	return d.buildAddForeignKey(d, name, table, columns, refTable, refColumns, onDelete, onUpdate)
 }
 
 // DropForeignKey builds DROP FOREIGN KEY SQL.

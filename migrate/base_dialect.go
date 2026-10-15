@@ -14,6 +14,135 @@ import (
 // parameter on every shared shape.
 type baseDialect struct{}
 
+// buildRowExistsSQL renders a SELECT EXISTS(...) probe over one table.
+func (baseDialect) buildRowExistsSQL(d Dialect, table string, condition string) string {
+	query := "SELECT EXISTS(SELECT 1 FROM " + d.QuoteTable(table)
+	if strings.TrimSpace(condition) != "" {
+		query += " WHERE " + condition
+	}
+	return query + ")"
+}
+
+// buildCountRowsSQL renders a SELECT COUNT(*) over one table.
+func (baseDialect) buildCountRowsSQL(d Dialect, table string, condition string) string {
+	query := "SELECT COUNT(*) FROM " + d.QuoteTable(table)
+	if strings.TrimSpace(condition) != "" {
+		query += " WHERE " + condition
+	}
+	return query
+}
+
+// buildCreateTable assembles the shared CREATE TABLE skeleton: each column is
+// rendered through the adapter's BuildColumn. Adapters that accept table
+// options pass allowOptions=true and get the options appended verbatim; the
+// others get an unsupported-operation error instead of silent option loss.
+func (baseDialect) buildCreateTable(d Dialect, table string, columns *ColumnList, options string, allowOptions bool) (string, error) {
+	if !allowOptions && strings.TrimSpace(options) != "" {
+		return "", unsupported(d.Name(), "TABLE OPTIONS")
+	}
+	defs := make([]string, 0, len(columns.Items()))
+	for _, item := range columns.Items() {
+		columnSQL, err := d.BuildColumn(item.Column)
+		if err != nil {
+			return "", err
+		}
+		defs = append(defs, d.QuoteColumn(item.Name)+" "+columnSQL)
+	}
+	query := fmt.Sprintf("CREATE TABLE %s (%s)", d.QuoteTable(table), strings.Join(defs, ", "))
+	if allowOptions {
+		query += joinOptions(options)
+	}
+	return query, nil
+}
+
+// buildCreateMigrationTableSQL renders the idempotent CREATE TABLE IF NOT
+// EXISTS statement for the migration history table.
+func (baseDialect) buildCreateMigrationTableSQL(d Dialect, table string) (string, error) {
+	return fmt.Sprintf(
+		"CREATE TABLE IF NOT EXISTS %s (%s varchar(180) NOT NULL PRIMARY KEY, %s int NOT NULL)",
+		d.QuoteTable(table), d.QuoteColumn("version"), d.QuoteColumn("apply_time"),
+	), nil
+}
+
+// buildDropTable renders DROP TABLE; ifExists selects the IF EXISTS form for
+// engines that support it.
+func (baseDialect) buildDropTable(d Dialect, table string, ifExists bool) (string, error) {
+	query := "DROP TABLE "
+	if ifExists {
+		query += "IF EXISTS "
+	}
+	return query + d.QuoteTable(table), nil
+}
+
+// buildRenameTable renders ALTER TABLE ... RENAME TO.
+func (baseDialect) buildRenameTable(d Dialect, oldName, newName string) (string, error) {
+	return fmt.Sprintf("ALTER TABLE %s RENAME TO %s", d.QuoteTable(oldName), d.QuoteTable(newName)), nil
+}
+
+// buildTruncateTable renders TRUNCATE TABLE.
+func (baseDialect) buildTruncateTable(d Dialect, table string) (string, error) {
+	return "TRUNCATE TABLE " + d.QuoteTable(table), nil
+}
+
+// buildAddColumn renders ALTER TABLE ... ADD COLUMN with the full column
+// definition from the adapter's BuildColumn.
+func (baseDialect) buildAddColumn(d Dialect, table, column string, builder *ColumnBuilder) (string, error) {
+	columnSQL, err := d.BuildColumn(builder)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", d.QuoteTable(table), d.QuoteColumn(column), columnSQL), nil
+}
+
+// buildDropColumn renders ALTER TABLE ... DROP COLUMN.
+func (baseDialect) buildDropColumn(d Dialect, table, column string) (string, error) {
+	return fmt.Sprintf("ALTER TABLE %s DROP COLUMN %s", d.QuoteTable(table), d.QuoteColumn(column)), nil
+}
+
+// buildRenameColumn renders ALTER TABLE ... RENAME COLUMN ... TO.
+func (baseDialect) buildRenameColumn(d Dialect, table, oldName, newName string) (string, error) {
+	return fmt.Sprintf("ALTER TABLE %s RENAME COLUMN %s TO %s", d.QuoteTable(table), d.QuoteColumn(oldName), d.QuoteColumn(newName)), nil
+}
+
+// buildCreateIndex renders CREATE [UNIQUE] INDEX over the quoted column list.
+func (baseDialect) buildCreateIndex(d Dialect, name, table string, columns []string, unique bool) (string, error) {
+	prefix := "CREATE INDEX"
+	if unique {
+		prefix = "CREATE UNIQUE INDEX"
+	}
+	return fmt.Sprintf("%s %s ON %s (%s)", prefix, d.QuoteTable(name), d.QuoteTable(table), columnList(d, columns)), nil
+}
+
+// buildDropIndex renders DROP INDEX ... ON table for engines that require the
+// table clause.
+func (baseDialect) buildDropIndex(d Dialect, name, table string) (string, error) {
+	return fmt.Sprintf("DROP INDEX %s ON %s", d.QuoteTable(name), d.QuoteTable(table)), nil
+}
+
+// buildAddPrimaryKey renders ALTER TABLE ... ADD CONSTRAINT ... PRIMARY KEY.
+func (baseDialect) buildAddPrimaryKey(d Dialect, name, table string, columns []string) (string, error) {
+	return fmt.Sprintf("ALTER TABLE %s ADD CONSTRAINT %s PRIMARY KEY (%s)", d.QuoteTable(table), d.QuoteTable(name), columnList(d, columns)), nil
+}
+
+// buildDropConstraint renders ALTER TABLE ... DROP CONSTRAINT for engines
+// that expose primary keys and foreign keys as named constraints.
+func (baseDialect) buildDropConstraint(d Dialect, name, table string) (string, error) {
+	return fmt.Sprintf("ALTER TABLE %s DROP CONSTRAINT %s", d.QuoteTable(table), d.QuoteTable(name)), nil
+}
+
+// buildAddForeignKey renders ALTER TABLE ... ADD CONSTRAINT ... FOREIGN KEY
+// with the optional ON DELETE and ON UPDATE actions.
+func (baseDialect) buildAddForeignKey(d Dialect, name, table string, columns []string, refTable string, refColumns []string, onDelete ForeignKeyAction, onUpdate ForeignKeyAction) (string, error) {
+	query := fmt.Sprintf("ALTER TABLE %s ADD CONSTRAINT %s FOREIGN KEY (%s) REFERENCES %s (%s)", d.QuoteTable(table), d.QuoteTable(name), columnList(d, columns), d.QuoteTable(refTable), columnList(d, refColumns))
+	if onDelete != "" {
+		query += " ON DELETE " + string(onDelete)
+	}
+	if onUpdate != "" {
+		query += " ON UPDATE " + string(onUpdate)
+	}
+	return query, nil
+}
+
 // buildInsert renders an INSERT statement for one row. Column order is sorted
 // so the generated SQL is deterministic.
 func (baseDialect) buildInsert(d Dialect, table string, row Row) (SQLStatement, error) {

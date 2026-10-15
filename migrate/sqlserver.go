@@ -216,7 +216,8 @@ func (d SQLServerDialect) ConstraintExistsSQL(table, name string) SQLStatement {
 	}
 }
 
-// BuildRowExistsSQL returns SQL for checking if a row exists.
+// BuildRowExistsSQL returns SQL for checking if a row exists as a CASE
+// expression, because SQL Server has no bare EXISTS select.
 func (d SQLServerDialect) BuildRowExistsSQL(table string, condition string) string {
 	query := "SELECT CASE WHEN EXISTS(SELECT 1 FROM " + d.QuoteTable(table)
 	if strings.TrimSpace(condition) != "" {
@@ -227,27 +228,12 @@ func (d SQLServerDialect) BuildRowExistsSQL(table string, condition string) stri
 
 // BuildCountRowsSQL returns SQL for counting rows.
 func (d SQLServerDialect) BuildCountRowsSQL(table string, condition string) string {
-	query := "SELECT COUNT(*) FROM " + d.QuoteTable(table)
-	if strings.TrimSpace(condition) != "" {
-		query += " WHERE " + condition
-	}
-	return query
+	return d.buildCountRowsSQL(d, table, condition)
 }
 
-// CreateTable builds CREATE TABLE SQL.
+// CreateTable builds CREATE TABLE SQL; SQL Server cannot take table options.
 func (d SQLServerDialect) CreateTable(table string, columns *ColumnList, options string) (string, error) {
-	if strings.TrimSpace(options) != "" {
-		return "", unsupported(d.Name(), "TABLE OPTIONS")
-	}
-	defs := make([]string, 0, len(columns.Items()))
-	for _, item := range columns.Items() {
-		columnSQL, err := d.BuildColumn(item.Column)
-		if err != nil {
-			return "", err
-		}
-		defs = append(defs, d.QuoteColumn(item.Name)+" "+columnSQL)
-	}
-	return fmt.Sprintf("CREATE TABLE %s (%s)", d.QuoteTable(table), strings.Join(defs, ", ")), nil
+	return d.buildCreateTable(d, table, columns, options, false)
 }
 
 // CreateMigrationTableSQL builds idempotent SQL that creates the migration
@@ -262,9 +248,9 @@ func (d SQLServerDialect) CreateMigrationTableSQL(table string) (string, error) 
 	), nil
 }
 
-// DropTable builds DROP TABLE SQL.
+// DropTable builds DROP TABLE IF EXISTS SQL.
 func (d SQLServerDialect) DropTable(table string) (string, error) {
-	return "DROP TABLE IF EXISTS " + d.QuoteTable(table), nil
+	return d.buildDropTable(d, table, true)
 }
 
 // RenameTable builds sp_rename SQL.
@@ -274,10 +260,10 @@ func (d SQLServerDialect) RenameTable(oldName, newName string) (string, error) {
 
 // TruncateTable builds TRUNCATE TABLE SQL.
 func (d SQLServerDialect) TruncateTable(table string) (string, error) {
-	return "TRUNCATE TABLE " + d.QuoteTable(table), nil
+	return d.buildTruncateTable(d, table)
 }
 
-// AddColumn builds ADD COLUMN SQL without the COLUMN keyword.
+// AddColumn builds ADD SQL without the COLUMN keyword.
 func (d SQLServerDialect) AddColumn(table, column string, builder *ColumnBuilder) (string, error) {
 	columnSQL, err := d.BuildColumn(builder)
 	if err != nil {
@@ -297,7 +283,7 @@ func (d SQLServerDialect) AlterColumn(table, column string, builder *ColumnBuild
 
 // DropColumn builds DROP COLUMN SQL.
 func (d SQLServerDialect) DropColumn(table, column string) (string, error) {
-	return fmt.Sprintf("ALTER TABLE %s DROP COLUMN %s", d.QuoteTable(table), d.QuoteColumn(column)), nil
+	return d.buildDropColumn(d, table, column)
 }
 
 // RenameColumn builds sp_rename SQL for a column.
@@ -307,43 +293,32 @@ func (d SQLServerDialect) RenameColumn(table, oldName, newName string) (string, 
 
 // CreateIndex builds CREATE INDEX SQL.
 func (d SQLServerDialect) CreateIndex(name, table string, columns []string, unique bool) (string, error) {
-	prefix := "CREATE INDEX"
-	if unique {
-		prefix = "CREATE UNIQUE INDEX"
-	}
-	return fmt.Sprintf("%s %s ON %s (%s)", prefix, d.QuoteColumn(name), d.QuoteTable(table), columnList(d, columns)), nil
+	return d.buildCreateIndex(d, name, table, columns, unique)
 }
 
 // DropIndex builds DROP INDEX SQL with ON table clause.
 func (d SQLServerDialect) DropIndex(name, table string) (string, error) {
-	return fmt.Sprintf("DROP INDEX %s ON %s", d.QuoteColumn(name), d.QuoteTable(table)), nil
+	return d.buildDropIndex(d, name, table)
 }
 
 // AddPrimaryKey builds ADD CONSTRAINT PRIMARY KEY SQL.
 func (d SQLServerDialect) AddPrimaryKey(name, table string, columns []string) (string, error) {
-	return fmt.Sprintf("ALTER TABLE %s ADD CONSTRAINT %s PRIMARY KEY (%s)", d.QuoteTable(table), d.QuoteColumn(name), columnList(d, columns)), nil
+	return d.buildAddPrimaryKey(d, name, table, columns)
 }
 
 // DropPrimaryKey builds DROP CONSTRAINT SQL.
 func (d SQLServerDialect) DropPrimaryKey(name, table string) (string, error) {
-	return fmt.Sprintf("ALTER TABLE %s DROP CONSTRAINT %s", d.QuoteTable(table), d.QuoteColumn(name)), nil
+	return d.buildDropConstraint(d, name, table)
 }
 
 // AddForeignKey builds ADD CONSTRAINT FOREIGN KEY SQL.
 func (d SQLServerDialect) AddForeignKey(name, table string, columns []string, refTable string, refColumns []string, onDelete ForeignKeyAction, onUpdate ForeignKeyAction) (string, error) {
-	query := fmt.Sprintf("ALTER TABLE %s ADD CONSTRAINT %s FOREIGN KEY (%s) REFERENCES %s (%s)", d.QuoteTable(table), d.QuoteColumn(name), columnList(d, columns), d.QuoteTable(refTable), columnList(d, refColumns))
-	if onDelete != "" {
-		query += " ON DELETE " + string(onDelete)
-	}
-	if onUpdate != "" {
-		query += " ON UPDATE " + string(onUpdate)
-	}
-	return query, nil
+	return d.buildAddForeignKey(d, name, table, columns, refTable, refColumns, onDelete, onUpdate)
 }
 
 // DropForeignKey builds DROP CONSTRAINT SQL for a foreign key.
 func (d SQLServerDialect) DropForeignKey(name, table string) (string, error) {
-	return fmt.Sprintf("ALTER TABLE %s DROP CONSTRAINT %s", d.QuoteTable(table), d.QuoteColumn(name)), nil
+	return d.buildDropConstraint(d, name, table)
 }
 
 // AddCommentOnColumn builds sp_addextendedproperty SQL for a column comment.
