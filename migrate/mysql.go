@@ -6,7 +6,9 @@ import (
 )
 
 // MySQLDialect generates SQL for MySQL.
-type MySQLDialect struct{}
+type MySQLDialect struct {
+	baseDialect
+}
 
 // Name returns the dialect name.
 func (d MySQLDialect) Name() string { return "mysql" }
@@ -330,22 +332,22 @@ func (d MySQLDialect) DropCommentFromTable(table string) (string, error) {
 
 // Insert builds INSERT SQL.
 func (d MySQLDialect) Insert(table string, row Row) (SQLStatement, error) {
-	return buildInsert(d, table, row)
+	return d.buildInsert(d, table, row)
 }
 
 // BatchInsert builds multi-row INSERT SQL.
 func (d MySQLDialect) BatchInsert(table string, columns []string, rows [][]any) (SQLStatement, error) {
-	return buildBatchInsert(d, table, columns, rows)
+	return d.buildBatchInsert(d, table, columns, rows)
 }
 
 // Update builds UPDATE SQL.
 func (d MySQLDialect) Update(table string, row Row, condition string, args ...any) (SQLStatement, error) {
-	return buildUpdate(d, table, row, condition, args...)
+	return d.buildUpdate(d, table, row, condition, args...)
 }
 
 // Delete builds DELETE SQL.
 func (d MySQLDialect) Delete(table string, condition string, args ...any) (SQLStatement, error) {
-	return buildDelete(d, table, condition, args...)
+	return d.buildDelete(d, table, condition, args...)
 }
 
 // AcquireLockSQL builds SQL for acquiring an advisory migration lock.

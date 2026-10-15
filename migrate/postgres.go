@@ -6,7 +6,9 @@ import (
 )
 
 // PostgreSQLDialect generates SQL for PostgreSQL.
-type PostgreSQLDialect struct{}
+type PostgreSQLDialect struct {
+	baseDialect
+}
 
 // Name returns the dialect name.
 func (d PostgreSQLDialect) Name() string { return "postgres" }
@@ -341,22 +343,22 @@ func (d PostgreSQLDialect) DropCommentFromTable(table string) (string, error) {
 
 // Insert builds INSERT SQL.
 func (d PostgreSQLDialect) Insert(table string, row Row) (SQLStatement, error) {
-	return buildInsert(d, table, row)
+	return d.buildInsert(d, table, row)
 }
 
 // BatchInsert builds multi-row INSERT SQL.
 func (d PostgreSQLDialect) BatchInsert(table string, columns []string, rows [][]any) (SQLStatement, error) {
-	return buildBatchInsert(d, table, columns, rows)
+	return d.buildBatchInsert(d, table, columns, rows)
 }
 
 // Update builds UPDATE SQL.
 func (d PostgreSQLDialect) Update(table string, row Row, condition string, args ...any) (SQLStatement, error) {
-	return buildUpdate(d, table, row, condition, args...)
+	return d.buildUpdate(d, table, row, condition, args...)
 }
 
 // Delete builds DELETE SQL.
 func (d PostgreSQLDialect) Delete(table string, condition string, args ...any) (SQLStatement, error) {
-	return buildDelete(d, table, condition, args...)
+	return d.buildDelete(d, table, condition, args...)
 }
 
 // AcquireLockSQL builds SQL for acquiring an advisory lock.

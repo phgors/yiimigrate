@@ -7,7 +7,9 @@ import (
 )
 
 // SQLServerDialect generates SQL for Microsoft SQL Server.
-type SQLServerDialect struct{}
+type SQLServerDialect struct {
+	baseDialect
+}
 
 // Name returns the dialect name.
 func (d SQLServerDialect) Name() string { return "sqlserver" }
@@ -366,22 +368,22 @@ func (d SQLServerDialect) DropCommentFromTable(table string) (string, error) {
 
 // Insert builds INSERT SQL.
 func (d SQLServerDialect) Insert(table string, row Row) (SQLStatement, error) {
-	return buildInsert(d, table, row)
+	return d.buildInsert(d, table, row)
 }
 
 // BatchInsert builds multi-row INSERT SQL.
 func (d SQLServerDialect) BatchInsert(table string, columns []string, rows [][]any) (SQLStatement, error) {
-	return buildBatchInsert(d, table, columns, rows)
+	return d.buildBatchInsert(d, table, columns, rows)
 }
 
 // Update builds UPDATE SQL.
 func (d SQLServerDialect) Update(table string, row Row, condition string, args ...any) (SQLStatement, error) {
-	return buildUpdate(d, table, row, condition, args...)
+	return d.buildUpdate(d, table, row, condition, args...)
 }
 
 // Delete builds DELETE SQL.
 func (d SQLServerDialect) Delete(table string, condition string, args ...any) (SQLStatement, error) {
-	return buildDelete(d, table, condition, args...)
+	return d.buildDelete(d, table, condition, args...)
 }
 
 // AcquireLockSQL builds SQL for acquiring an application lock.
