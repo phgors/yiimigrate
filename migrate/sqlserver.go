@@ -69,10 +69,11 @@ func (d SQLServerDialect) BuildColumn(c *ColumnBuilder) (string, error) {
 	if identity := mssqlIdentityType(c); identity != "" {
 		typeSQL = identity
 	} else {
-		typeSQL = mssqlType(c)
-	}
-	if typeSQL == "" {
-		return "", unsupported(d.Name(), c.typeName)
+		var err error
+		typeSQL, err = d.mssqlType(c)
+		if err != nil {
+			return "", err
+		}
 	}
 
 	parts := []string{typeSQL}
@@ -120,52 +121,54 @@ func mssqlIdentityType(c *ColumnBuilder) string {
 	return ""
 }
 
-func mssqlType(c *ColumnBuilder) string {
+// mssqlType maps a column builder onto its SQL Server type name. A type
+// without a mapping - including enum and set, which SQL Server cannot
+// represent - is rejected with an unsupported error instead of producing an
+// empty definition.
+func (d SQLServerDialect) mssqlType(c *ColumnBuilder) (string, error) {
 	switch c.typeName {
 	case "tinyInteger":
-		return "TINYINT"
+		return "TINYINT", nil
 	case "smallInteger":
-		return "SMALLINT"
+		return "SMALLINT", nil
 	case "integer":
-		return "INT"
+		return "INT", nil
 	case "bigInteger":
-		return "BIGINT"
+		return "BIGINT", nil
 	case "string":
-		return sizedType("NVARCHAR", c.size, 255)
+		return sizedType("NVARCHAR", c.size, 255), nil
 	case "char":
-		return sizedType("NCHAR", c.size)
+		return sizedType("NCHAR", c.size), nil
 	case "text", "tinyText", "mediumText", "longText":
-		return "NVARCHAR(MAX)"
+		return "NVARCHAR(MAX)", nil
 	case "binary":
-		return sizedType("VARBINARY", c.size)
+		return sizedType("VARBINARY", c.size), nil
 	case "tinyBlob", "mediumBlob", "longBlob":
-		return "VARBINARY(MAX)"
+		return "VARBINARY(MAX)", nil
 	case "boolean":
-		return "BIT"
+		return "BIT", nil
 	case "float":
-		return sizedType("FLOAT", c.size)
+		return sizedType("FLOAT", c.size), nil
 	case "double":
-		return "DOUBLE PRECISION"
+		return "DOUBLE PRECISION", nil
 	case "decimal":
-		return sizedType("DECIMAL", c.size)
+		return sizedType("DECIMAL", c.size), nil
 	case "money":
-		return "MONEY"
+		return "MONEY", nil
 	case "date":
-		return "DATE"
+		return "DATE", nil
 	case "dateTime":
-		return mssqlPrecisionType("DATETIME2", c.size)
+		return mssqlPrecisionType("DATETIME2", c.size), nil
 	case "time":
-		return mssqlPrecisionType("TIME", c.size)
+		return mssqlPrecisionType("TIME", c.size), nil
 	case "timestamp":
-		return mssqlPrecisionType("DATETIME2", c.size)
+		return mssqlPrecisionType("DATETIME2", c.size), nil
 	case "json":
-		return "NVARCHAR(MAX)"
+		return "NVARCHAR(MAX)", nil
 	case "uuid":
-		return "UNIQUEIDENTIFIER"
-	case "enum", "set":
-		return ""
+		return "UNIQUEIDENTIFIER", nil
 	default:
-		return strings.ToUpper(c.typeName)
+		return "", unsupported(d.Name(), c.typeName)
 	}
 }
 

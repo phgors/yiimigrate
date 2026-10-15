@@ -55,7 +55,11 @@ func (d SQLiteDialect) BuildColumn(c *ColumnBuilder) (string, error) {
 		}
 		return strings.Join(parts, " "), nil
 	}
-	parts := []string{sqliteType(c)}
+	typeSQL, err := d.sqliteType(c)
+	if err != nil {
+		return "", err
+	}
+	parts := []string{typeSQL}
 	if c.nullSet {
 		if c.nullable {
 			parts = append(parts, "NULL")
@@ -87,24 +91,27 @@ func (d SQLiteDialect) BuildColumn(c *ColumnBuilder) (string, error) {
 	return strings.Join(parts, " "), nil
 }
 
-func sqliteType(c *ColumnBuilder) string {
+// sqliteType maps a column builder onto its SQLite type name. A type without a
+// mapping is rejected with an unsupported error instead of being spliced into
+// the SQL verbatim.
+func (d SQLiteDialect) sqliteType(c *ColumnBuilder) (string, error) {
 	switch c.typeName {
 	case "tinyInteger", "smallInteger", "integer", "bigInteger", "boolean":
-		return "INTEGER"
+		return "INTEGER", nil
 	case "string":
-		return sizedType("VARCHAR", c.size, 255)
+		return sizedType("VARCHAR", c.size, 255), nil
 	case "char":
-		return sizedType("CHAR", c.size)
+		return sizedType("CHAR", c.size), nil
 	case "text", "tinyText", "mediumText", "longText", "date", "dateTime", "time", "timestamp", "json", "uuid", "enum", "set":
-		return "TEXT"
+		return "TEXT", nil
 	case "binary", "tinyBlob", "mediumBlob", "longBlob":
-		return "BLOB"
+		return "BLOB", nil
 	case "float", "double":
-		return "REAL"
+		return "REAL", nil
 	case "decimal", "money":
-		return sizedType("NUMERIC", c.size)
+		return sizedType("NUMERIC", c.size), nil
 	default:
-		return strings.ToUpper(c.typeName)
+		return "", unsupported(d.Name(), c.typeName)
 	}
 }
 

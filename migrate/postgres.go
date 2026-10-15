@@ -51,7 +51,11 @@ func (d PostgreSQLDialect) BuildColumn(c *ColumnBuilder) (string, error) {
 	serial := pgSerialType(c)
 	parts := []string{serial}
 	if serial == "" {
-		parts = []string{pgType(c)}
+		typeSQL, err := d.pgType(c)
+		if err != nil {
+			return "", err
+		}
+		parts = []string{typeSQL}
 		if c.nullSet {
 			if c.nullable {
 				parts = append(parts, "NULL")
@@ -100,64 +104,67 @@ func pgSerialType(c *ColumnBuilder) string {
 	return ""
 }
 
-func pgType(c *ColumnBuilder) string {
+// pgType maps a column builder onto its PostgreSQL type name. A type without
+// a mapping is rejected with an unsupported error instead of being spliced
+// into the SQL verbatim.
+func (d PostgreSQLDialect) pgType(c *ColumnBuilder) (string, error) {
 	switch c.typeName {
 	case "tinyInteger":
-		return "SMALLINT"
+		return "SMALLINT", nil
 	case "smallInteger":
-		return "SMALLINT"
+		return "SMALLINT", nil
 	case "integer":
-		return "INTEGER"
+		return "INTEGER", nil
 	case "bigInteger":
-		return "BIGINT"
+		return "BIGINT", nil
 	case "string":
-		return sizedType("VARCHAR", c.size, 255)
+		return sizedType("VARCHAR", c.size, 255), nil
 	case "char":
-		return sizedType("CHAR", c.size)
+		return sizedType("CHAR", c.size), nil
 	case "text":
-		return "TEXT"
+		return "TEXT", nil
 	case "tinyText":
-		return "TEXT"
+		return "TEXT", nil
 	case "mediumText":
-		return "TEXT"
+		return "TEXT", nil
 	case "longText":
-		return "TEXT"
+		return "TEXT", nil
 	case "binary":
-		return "BYTEA"
+		return "BYTEA", nil
 	case "tinyBlob":
-		return "BYTEA"
+		return "BYTEA", nil
 	case "mediumBlob":
-		return "BYTEA"
+		return "BYTEA", nil
 	case "longBlob":
-		return "BYTEA"
+		return "BYTEA", nil
 	case "boolean":
-		return "BOOLEAN"
+		return "BOOLEAN", nil
 	case "float":
-		return "REAL"
+		return "REAL", nil
 	case "double":
-		return "DOUBLE PRECISION"
+		return "DOUBLE PRECISION", nil
 	case "decimal":
-		return sizedType("DECIMAL", c.size)
+		return sizedType("DECIMAL", c.size), nil
 	case "money":
-		return "MONEY"
+		return "MONEY", nil
 	case "date":
-		return "DATE"
+		return "DATE", nil
 	case "dateTime":
-		return precisionType("TIMESTAMP", c.size)
+		return precisionType("TIMESTAMP", c.size), nil
 	case "time":
-		return precisionType("TIME", c.size)
+		return precisionType("TIME", c.size), nil
 	case "timestamp":
-		return precisionType("TIMESTAMP", c.size)
+		return precisionType("TIMESTAMP", c.size), nil
 	case "json":
-		return "JSONB"
+		return "JSONB", nil
 	case "uuid":
-		return "UUID"
+		return "UUID", nil
 	case "enum":
-		return "TEXT"
+		return "TEXT", nil
 	case "set":
-		return "TEXT"
+		return "TEXT", nil
 	default:
-		return strings.ToUpper(c.typeName)
+		return "", unsupported(d.Name(), c.typeName)
 	}
 }
 
@@ -244,7 +251,11 @@ func (d PostgreSQLDialect) AddColumn(table, column string, builder *ColumnBuilde
 
 // AlterColumn builds ALTER COLUMN TYPE SQL.
 func (d PostgreSQLDialect) AlterColumn(table, column string, builder *ColumnBuilder) (string, error) {
-	return fmt.Sprintf("ALTER TABLE %s ALTER COLUMN %s TYPE %s", d.QuoteTable(table), d.QuoteColumn(column), pgType(builder)), nil
+	typeSQL, err := d.pgType(builder)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("ALTER TABLE %s ALTER COLUMN %s TYPE %s", d.QuoteTable(table), d.QuoteColumn(column), typeSQL), nil
 }
 
 // DropColumn builds DROP COLUMN SQL.

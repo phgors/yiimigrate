@@ -30,7 +30,11 @@ func (d MySQLDialect) BuildColumn(c *ColumnBuilder) (string, error) {
 	if c == nil {
 		return "", fmt.Errorf("migrate: column builder is nil")
 	}
-	parts := []string{mysqlType(c)}
+	typeSQL, err := d.mysqlType(c)
+	if err != nil {
+		return "", err
+	}
+	parts := []string{typeSQL}
 	if c.unsigned && supportsMySQLUnsigned(c.typeName) {
 		parts = append(parts, "UNSIGNED")
 	}
@@ -86,62 +90,65 @@ func (d MySQLDialect) BuildColumn(c *ColumnBuilder) (string, error) {
 	return strings.Join(parts, " "), nil
 }
 
-func mysqlType(c *ColumnBuilder) string {
+// mysqlType maps a column builder onto its MySQL type name. A type without a
+// mapping is rejected with an unsupported error instead of being spliced into
+// the SQL verbatim.
+func (d MySQLDialect) mysqlType(c *ColumnBuilder) (string, error) {
 	switch c.typeName {
 	case "tinyInteger":
-		return sizedType("TINYINT", c.size)
+		return sizedType("TINYINT", c.size), nil
 	case "smallInteger":
-		return sizedType("SMALLINT", c.size)
+		return sizedType("SMALLINT", c.size), nil
 	case "integer":
-		return sizedType("INT", c.size)
+		return sizedType("INT", c.size), nil
 	case "bigInteger":
-		return sizedType("BIGINT", c.size)
+		return sizedType("BIGINT", c.size), nil
 	case "string":
-		return sizedType("VARCHAR", c.size, 255)
+		return sizedType("VARCHAR", c.size, 255), nil
 	case "char":
-		return sizedType("CHAR", c.size)
+		return sizedType("CHAR", c.size), nil
 	case "text":
-		return "TEXT"
+		return "TEXT", nil
 	case "tinyText":
-		return "TINYTEXT"
+		return "TINYTEXT", nil
 	case "mediumText":
-		return "MEDIUMTEXT"
+		return "MEDIUMTEXT", nil
 	case "longText":
-		return "LONGTEXT"
+		return "LONGTEXT", nil
 	case "binary":
-		return sizedType("VARBINARY", c.size)
+		return sizedType("VARBINARY", c.size), nil
 	case "tinyBlob":
-		return "TINYBLOB"
+		return "TINYBLOB", nil
 	case "mediumBlob":
-		return "MEDIUMBLOB"
+		return "MEDIUMBLOB", nil
 	case "longBlob":
-		return "LONGBLOB"
+		return "LONGBLOB", nil
 	case "boolean":
-		return "TINYINT(1)"
+		return "TINYINT(1)", nil
 	case "float":
-		return sizedType("FLOAT", c.size)
+		return sizedType("FLOAT", c.size), nil
 	case "double":
-		return sizedType("DOUBLE", c.size)
+		return sizedType("DOUBLE", c.size), nil
 	case "decimal", "money":
-		return sizedType("DECIMAL", c.size)
+		return sizedType("DECIMAL", c.size), nil
 	case "date":
-		return "DATE"
+		return "DATE", nil
 	case "dateTime":
-		return precisionType("DATETIME", c.size)
+		return precisionType("DATETIME", c.size), nil
 	case "time":
-		return precisionType("TIME", c.size)
+		return precisionType("TIME", c.size), nil
 	case "timestamp":
-		return precisionType("TIMESTAMP", c.size)
+		return precisionType("TIMESTAMP", c.size), nil
 	case "json":
-		return "JSON"
+		return "JSON", nil
 	case "uuid":
-		return "CHAR(36)"
+		return "CHAR(36)", nil
 	case "enum":
-		return "ENUM(" + enumValues(c.values) + ")"
+		return "ENUM(" + enumValues(c.values) + ")", nil
 	case "set":
-		return "SET(" + enumValues(c.values) + ")"
+		return "SET(" + enumValues(c.values) + ")", nil
 	default:
-		return strings.ToUpper(c.typeName)
+		return "", unsupported(d.Name(), c.typeName)
 	}
 }
 

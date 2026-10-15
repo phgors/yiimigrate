@@ -287,6 +287,11 @@ func TestDialectConformanceBuildColumn(t *testing.T) {
 		colCase("set", func(m *MigrationContext) *ColumnBuilder { return m.Set("x", "y") },
 			map[string]string{"mysql": "SET('x', 'y')", "sqlite": "TEXT", "postgres": "TEXT"},
 			wantUnsupported("set", "sqlserver")),
+		// A type name no adapter maps must never be spliced into SQL
+		// verbatim: every adapter rejects it with the same unsupported error.
+		colCase("unmapped column type", func(m *MigrationContext) *ColumnBuilder { return newColumnBuilder("geometry") },
+			nil,
+			wantUnsupported("geometry", "mysql", "sqlite", "postgres", "sqlserver")),
 
 		// Primary key and auto-increment identities.
 		colCase("integer primary key", func(m *MigrationContext) *ColumnBuilder { return m.PrimaryKey() },
@@ -488,6 +493,21 @@ func TestDialectConformanceSchema(t *testing.T) {
 				"sqlserver": "ALTER TABLE [article] ALTER COLUMN [title] NVARCHAR(256) NOT NULL",
 			},
 			wantUnsupported: wantUnsupported("ALTER COLUMN", "sqlite"),
+		},
+		{
+			// An unmapped type surfaces through ALTER COLUMN as well: the
+			// three adapters that can alter reject the type itself, while
+			// SQLite rejects the whole operation first.
+			name: "alter column unmapped type",
+			op: func(d Dialect) (string, error) {
+				return d.AlterColumn("article", "shape", newColumnBuilder("geometry"))
+			},
+			wantUnsupported: map[string]string{
+				"mysql":     "geometry",
+				"postgres":  "geometry",
+				"sqlserver": "geometry",
+				"sqlite":    "ALTER COLUMN",
+			},
 		},
 		{
 			name:            "drop column",
