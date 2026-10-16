@@ -17,7 +17,7 @@
 - 四方言一致性矩阵：`migrate/dialect_conformance_test.go` 表驱动用例遍历全部 adapter，强制逐格有期望、无静默缺格；被矩阵覆盖的重复断言清理（535ff8f、5f1098d）。
 - `baseDialect` 共享语句实现底座：内嵌于四个 adapter，吸收共享语句形状，adapter 只覆写真实分歧（类型映射、引号、探针、锁、注释、不支持项）（56d7390、7bb5254）。
 - 方言注册表（`DialectByName` / `DialectNames`，CLI 与生成器共用的唯一方言入口）与 `create --dialect` 按方言生成迁移模板（ba59eea）。
-- 使用文档与开发文档：`docs/` 五页（快速上手、CLI 参考、迁移编写指南、方言参考、架构）与 `dev-docs/`（术语表 `CONTEXT.md`、ADR-0001/0002、工单流）（2df10e3、e6a24bc、2d47166、ca53584、31041c3、9aa92f2）。
+- 使用文档与开发文档：`docs/` 五页（快速上手、CLI 参考、迁移编写指南、方言参考、架构）、`dev-docs/`（术语表 `CONTEXT.md`、ADR-0001/0002、postgres / sqlserver 方言与 iphubtest 示例设计文档、工单流）（5b4aaf3、3d45829、2df10e3、e6a24bc、2d47166、ca53584、31041c3、9aa92f2）。
 
 ### Changed
 
