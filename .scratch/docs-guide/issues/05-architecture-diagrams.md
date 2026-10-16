@@ -4,7 +4,7 @@
 
 **Blocked by:** 01（docs/ 分区归位）
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 - [ ] 模块图以 Mermaid flowchart 呈现，模块/接口/seam 命名与 CONTEXT.md 词汇表一致
 - [ ] migrate up 时序图覆盖锁、迁移历史表、版本比对、执行、记录各阶段，与 migrator 实际流程一致
