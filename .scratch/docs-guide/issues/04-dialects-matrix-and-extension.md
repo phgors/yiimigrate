@@ -4,7 +4,7 @@
 
 **Blocked by:** 03（引用迁移编写页的 SchemaPlan/ColumnBuilder 概念）
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 - [ ] 能力矩阵以表格呈现且与当前四个 adapter 实际行为逐格核对（以一致性矩阵用例为事实源）
 - [ ] unsupported 项全部如实标注（对应 UnsupportedOperationError 可触发的操作）
