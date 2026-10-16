@@ -327,6 +327,21 @@ func main() {
 
 `NewMigrator` 返回的 `Migrator` 提供几个可调字段：`MigrationTable`（默认 `migration`）、`DryRun`、`UseLock` / `LockName` / `LockTimeoutSeconds`（默认开启，锁名 `yiimigrate`，超时 30 秒）。各字段语义与全部导出 API 见 [pkg.go.dev](https://pkg.go.dev/github.com/phgors/yiimigrate/migrate)。
 
+## 跑测试
+
+本仓库的单元测试（含四方言一致性矩阵）不依赖任何数据库：
+
+```bash
+go test ./...
+```
+
+mysql / postgres / sqlserver 的集成测试分别由 `MYSQL_TEST_DSN`、`POSTGRES_TEST_DSN`、`SQLSERVER_TEST_DSN` 环境变量触发，未设置的方言自动跳过：
+
+```bash
+export MYSQL_TEST_DSN="root:password@tcp(127.0.0.1:3306)/test?parseTime=true"
+go test ./...
+```
+
 ## 下一步
 
 - [迁移编写指南](migrations.md)：迁移结构、ColumnBuilder、SchemaPlan 与查询 helper 的 API 主参考。

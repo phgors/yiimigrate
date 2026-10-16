@@ -328,6 +328,30 @@ if !exists {
 
 想在 dry-run 里检查生成了什么语句，用 `plan.Statements()` 取累积结果——单元测试断言生成 SQL 也是走它。
 
+## Yii2 到 Go API 对照
+
+<a id="yii2-map"></a>
+
+从 Yii2 迁移过来的开发者可以按这张表找对应写法：
+
+| Yii2 | yiimigrate |
+| --- | --- |
+| `$this->createTable(...)` | `m.Schema().CreateTable(...)` |
+| `$this->dropTable(...)` | `m.Schema().DropTable(...)` |
+| `$this->addColumn(...)` | `m.Schema().AddColumn(...)` |
+| `$this->dropColumn(...)` | `m.Schema().DropColumn(...)` |
+| `$this->createIndex(...)` | `m.Schema().CreateIndex(...)` |
+| `$this->addForeignKey(...)` | `m.Schema().AddForeignKey(...)` |
+| `$this->insert(...)` | `m.Schema().Insert(...)` |
+| `$this->batchInsert(...)` | `m.Schema().BatchInsert(...)` |
+| `$this->update(...)` | `m.Schema().Update(...)` |
+| `$this->delete(...)` | `m.Schema().Delete(...)` |
+| `$this->execute(...)` | `m.Execute(...)`（立即执行）或 `m.Schema().Raw(...)`（排进计划） |
+| `safeUp()` | `Up(ctx, m)`——每个迁移默认在自己的事务里执行 |
+| `safeDown()` | `Down(ctx, m)`——事务语义同上 |
+
+两点差异提醒：列声明从 PHP 数组换成不可变链式 `ColumnBuilder`（见[上文](#column-builder)）；幂等写法在 Yii2 里靠手写 `IF EXISTS` SQL，本库统一是 `*IfExists` 变体（见[上文](#ifexists)）。
+
 ## 下一步
 
 - [快速上手](getting-started.md)：从零跑通第一次迁移的完整闭环。
