@@ -4,7 +4,7 @@
 
 **Blocked by:** 02, 03, 04, 05, 06（全部内容页就位后方可索引与搬迁）
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 - [ ] 首段宣称与 v0.1.0 现状一致（四方言已实现并有单元+集成测试覆盖，集成测试按 DSN 触发）
 - [ ] README 仅保留：简介、特性、安装、quickstart、文档索引、CHANGELOG 链接；篇幅显著下降
