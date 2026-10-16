@@ -268,4 +268,6 @@ CLI 的方言别名（如 `mssql`）加在 `cmd/migrate/main.go` 的别名表里
 - [快速上手](getting-started.md)：从零跑通第一次迁移的完整闭环。
 - [CLI 参考](cli.md)：全部子命令、旗标、环境变量与报错行为。
 - [架构](architecture.md)：模块图、一次 migrate up 的执行时序与 CLI 调用流程。
+- [排错指南](troubleshooting.md)：`UnsupportedOperationError` 的读法、迁移锁、历史表、dry-run 差异与已知限制的「现象 -> 原因 -> 处置」目录。
+- [升级注意](upgrade-notes.md)：drop 严格化与类型报错等 v0.1.0 行为变化的旧 / 新对照。
 - [pkg.go.dev 文档](https://pkg.go.dev/github.com/phgors/yiimigrate/migrate)：`migrate` 包全部导出 API 的 godoc。

@@ -140,3 +140,5 @@ flowchart TD
 - [迁移编写指南](migrations.md)：ColumnBuilder、SchemaPlan 与查询 helper 的 API 主参考。
 - [方言参考](dialects.md)：能力矩阵、各方言注意事项与新增方言指南。
 - [CLI 参考](cli.md)：全部子命令、旗标、环境变量与报错行为。
+- [排错指南](troubleshooting.md)：常见错误的「现象 -> 原因 -> 处置」目录与已知限制。
+- [升级注意](upgrade-notes.md)：v0.1.0 行为变化的旧 / 新对照与迁移建议。

@@ -334,5 +334,7 @@ if !exists {
 - [方言参考](dialects.md)：能力矩阵、各方言注意事项与新增方言指南。
 - [CLI 参考](cli.md)：全部子命令、旗标、环境变量与报错行为。
 - [架构](architecture.md)：模块图、一次 migrate up 的执行时序与 CLI 调用流程。
+- [排错指南](troubleshooting.md)：常见错误的「现象 -> 原因 -> 处置」目录与已知限制。
+- [升级注意](upgrade-notes.md)：v0.1.0 行为变化的旧 / 新对照与迁移建议。
 - [pkg.go.dev 文档](https://pkg.go.dev/github.com/phgors/yiimigrate/migrate)：`migrate` 包全部导出 API 的 godoc。
 - [examples/migrations](../examples/migrations/m20260613_120000_create_article_table.go)：完整迁移范例。
