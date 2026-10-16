@@ -267,4 +267,5 @@ CLI 的方言别名（如 `mssql`）加在 `cmd/migrate/main.go` 的别名表里
 - [迁移编写指南](migrations.md)：ColumnBuilder、SchemaPlan 与查询 helper 的 API 主参考。
 - [快速上手](getting-started.md)：从零跑通第一次迁移的完整闭环。
 - [CLI 参考](cli.md)：全部子命令、旗标、环境变量与报错行为。
+- [架构](architecture.md)：模块图、一次 migrate up 的执行时序与 CLI 调用流程。
 - [pkg.go.dev 文档](https://pkg.go.dev/github.com/phgors/yiimigrate/migrate)：`migrate` 包全部导出 API 的 godoc。

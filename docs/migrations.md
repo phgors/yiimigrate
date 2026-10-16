@@ -333,5 +333,6 @@ if !exists {
 - [快速上手](getting-started.md)：从零跑通第一次迁移的完整闭环。
 - [方言参考](dialects.md)：能力矩阵、各方言注意事项与新增方言指南。
 - [CLI 参考](cli.md)：全部子命令、旗标、环境变量与报错行为。
+- [架构](architecture.md)：模块图、一次 migrate up 的执行时序与 CLI 调用流程。
 - [pkg.go.dev 文档](https://pkg.go.dev/github.com/phgors/yiimigrate/migrate)：`migrate` 包全部导出 API 的 godoc。
 - [examples/migrations](../examples/migrations/m20260613_120000_create_article_table.go)：完整迁移范例。
