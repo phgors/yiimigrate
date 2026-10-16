@@ -4,7 +4,7 @@
 
 **Blocked by:** 02（入门页概念先行，本页引用之）
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 - [ ] 迁移注册与 Name 约定、Up/Down 结构、不可逆迁移（ErrIrreversibleMigration）成节
 - [ ] ColumnBuilder 列类型与修饰符清单与 column_builder 实际 API 一一对应（不可变性说明到位）
