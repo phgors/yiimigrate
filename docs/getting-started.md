@@ -3,7 +3,7 @@
 本页带一个新项目从安装走到完整的迁移闭环：生成迁移文件 -> 注册 -> `up` 应用（自动创建迁移历史表）-> `history` 核对 -> `down` 回滚。命令与输出均与 v0.1.0 的实际行为一致。
 
 - 只想查某个命令或旗标：直接看 [CLI 参考](cli.md)。
-- 想了解字段类型与 Schema 操作的完整清单：见 [README](../README.md) 与 [pkg.go.dev 文档](https://pkg.go.dev/github.com/phgors/yiimigrate/migrate)。
+- 想了解字段类型与 Schema 操作的完整清单：见 [迁移编写指南](migrations.md) 与 [pkg.go.dev 文档](https://pkg.go.dev/github.com/phgors/yiimigrate/migrate)。
 
 ## 前置条件
 
@@ -329,6 +329,6 @@ func main() {
 
 ## 下一步
 
+- [迁移编写指南](migrations.md)：迁移结构、ColumnBuilder、SchemaPlan 与查询 helper 的 API 主参考。
 - [CLI 参考](cli.md)：全部子命令、旗标、环境变量与报错行为。
-- [README](../README.md)：字段类型、SchemaPlan 与查询 helper 的完整清单。
 - [examples/migrations/m20260613_120000_create_article_table.go](../examples/migrations/m20260613_120000_create_article_table.go)：一份更完整的迁移范例（幂等 `*IfExists` 变体、`RowExists` 查询分支、带 `migrate.Expr` 的 `Insert`）。

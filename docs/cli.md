@@ -2,7 +2,7 @@
 
 `cmd/migrate` 是本仓库自带的迁移命令行工具，八个命令，配置全部通过环境变量传递（除 `create` 的两个旗标外没有旗标）。本文每一项均与 `cmd/migrate` 的实现逐一核对，适用于 v0.1.0。
 
-第一次使用建议先读 [快速上手](getting-started.md)；本页是逐项参考。
+第一次使用建议先读 [快速上手](getting-started.md)；迁移本身的写法（ColumnBuilder、SchemaPlan、查询 helper）见 [迁移编写指南](migrations.md)；本页是逐项参考。
 
 ## 用法
 
