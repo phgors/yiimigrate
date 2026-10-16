@@ -330,5 +330,6 @@ func main() {
 ## 下一步
 
 - [迁移编写指南](migrations.md)：迁移结构、ColumnBuilder、SchemaPlan 与查询 helper 的 API 主参考。
+- [方言参考](dialects.md)：各方言能力矩阵、注意事项与新增方言指南。
 - [CLI 参考](cli.md)：全部子命令、旗标、环境变量与报错行为。
 - [examples/migrations/m20260613_120000_create_article_table.go](../examples/migrations/m20260613_120000_create_article_table.go)：一份更完整的迁移范例（幂等 `*IfExists` 变体、`RowExists` 查询分支、带 `migrate.Expr` 的 `Insert`）。

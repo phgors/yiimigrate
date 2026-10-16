@@ -4,6 +4,7 @@
 
 - 还没跑通过第一次迁移：先看[快速上手](getting-started.md)。
 - 只想查 CLI 子命令、旗标与环境变量：看 [CLI 参考](cli.md)。
+- 各方言能力差异、注意事项与新增方言：看[方言参考](dialects.md)。
 - 导出 API 的逐项明细：看 [pkg.go.dev 文档](https://pkg.go.dev/github.com/phgors/yiimigrate/migrate)（模块路径 `github.com/phgors/yiimigrate`），本页不重复 godoc。
 
 ## 迁移的结构与注册
@@ -159,6 +160,8 @@ slug := name.Unique()      // slug 只带 UNIQUE——title 的修改没有泄�
 | `m.Enum(...)` / `m.Set(...)` | 原生 `ENUM(...)` / `SET(...)` | 落为 `TEXT`，取值列表不进 SQL | 落为 `TEXT`，取值列表不进 SQL | 报不支持 |
 
 "报不支持"指生成语句时返回 `*UnsupportedOperationError`（如 `postgres does not support UNSIGNED`），在 dry-run 里同样会暴露——不依赖某个数据库时，用 dry-run 扫一遍就能提前发现。
+
+上表是速览版；完整的操作 × 方言能力矩阵、四方言注意事项与「新增一个方言」扩展指南见[方言参考](dialects.md)。
 
 ## SchemaPlan：链式 schema 操作
 
@@ -328,6 +331,7 @@ if !exists {
 ## 下一步
 
 - [快速上手](getting-started.md)：从零跑通第一次迁移的完整闭环。
+- [方言参考](dialects.md)：能力矩阵、各方言注意事项与新增方言指南。
 - [CLI 参考](cli.md)：全部子命令、旗标、环境变量与报错行为。
 - [pkg.go.dev 文档](https://pkg.go.dev/github.com/phgors/yiimigrate/migrate)：`migrate` 包全部导出 API 的 godoc。
 - [examples/migrations](../examples/migrations/m20260613_120000_create_article_table.go)：完整迁移范例。
