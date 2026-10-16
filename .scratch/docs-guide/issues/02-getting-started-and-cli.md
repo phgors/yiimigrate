@@ -4,7 +4,7 @@
 
 **Blocked by:** 01（docs/ 分区归位后再落使用文档）
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 - [ ] getting-started.md 覆盖：安装、四方言 DSN 示例、方言选择（含 DialectByName 注册表口径）、首次迁移完整可复制流程
 - [ ] cli.md 覆盖全部子命令与旗标（含 07 轮新增的 create --dialect 与按方言模板行为），逐项与 cmd/migrate 实际实现核对
