@@ -4,7 +4,7 @@
 
 **Blocked by:** 04（错误目录需引用方言行为差异的事实）
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 - [ ] troubleshooting 错误目录按「现象 → 原因 → 处置」组织，覆盖上述类别且与实际错误类型/信息一致
 - [ ] upgrade-notes 说清三处行为变化的旧/新对照与受影响写法的改法
